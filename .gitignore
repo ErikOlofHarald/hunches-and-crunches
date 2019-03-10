@@ -1,0 +1,7 @@
+public/
+old-posts/
+.RData
+.Rhistory
+.Rproj.user/
+notes.R
+content/**/*.html

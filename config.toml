@@ -1,0 +1,24 @@
+baseurl = "/"
+title = "Hunches & Crunches"
+author = "Erik Andreasson"
+copyright = "Copyright © 2008–2018, Erik Andreasson"
+canonifyurls = true
+paginate = 3
+
+theme = "hugo-blog-jeffprod"
+
+[permalinks]
+    post = "/:year/:month/:day/:slug/"
+
+[taxonomies]
+    tag = "tags"
+    archive = "archives"
+
+ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown$", "_files$", "_cache$"]
+
+# Remember keywords, decriptions. See lithium
+# Disqus etc. See lithium
+# Google analytics
+# Display categories?
+# Add params description. Lithium has desc for main site page, and can optionally add desc to posts.
+# See all metadata in lithium. og:title etc. Why are not all og: objects?

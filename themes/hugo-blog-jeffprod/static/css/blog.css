@@ -1,0 +1,35 @@
+html,body {
+    font-family: 'Open Sans', sans-serif;
+    background: #F0F2F4;
+    }
+.hero-body {
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    }
+.mysocial { color: hsl(0, 0%, 100%);}
+.mysocial:hover { color: hsl(0, 0%, 71%) }
+.pagination-link.is-current{background-color:hsl(0, 0%, 21%);border-color:hsl(0, 0%, 21%);color:#fff}
+a{color:hsl(0, 0%, 21%)}
+a:hover{color:hsl(0, 0%, 71%)}
+
+ /* Progress Bar CSS */
+.progress {
+    width: 100%;
+    height: 5px; /* Bar Height */
+}
+
+.progress-wrap {
+    background: hsl(0, 0%, 21%); /* Bar Colour */
+    margin: 0;
+    overflow: hidden;
+    position: relative;
+    position: fixed; top
+}
+
+.progress-wrap .progress-bar {
+    background: #F2F2F2; /* Background Colour */
+    left: 0;
+    position: absolute;
+    top: 0;
+}
