@@ -10,9 +10,28 @@ html,body {
 .mysocial { color: hsl(0, 0%, 100%);}
 .mysocial:hover { color: hsl(0, 0%, 71%) }
 .pagination-link.is-current{background-color:hsl(0, 0%, 21%);border-color:hsl(0, 0%, 21%);color:#fff}
-a{color:hsl(0, 0%, 21%)}
+/*a{color:hsl(0, 0%, 21%)}*/
+a{color:hsl(11, 100%, 35%)}
 a:hover{color:hsl(0, 0%, 71%)}
 
+/* Center img */
+img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0px 0px 15px;
+}
+
+.figure {
+  padding: 50px 0 50px;
+}
+.figure p {
+  text-align: center;
+}
+
+.hero-body {
+  background-color: #f0f2f4;
+}
  /* Progress Bar CSS */
 .progress {
     width: 100%;

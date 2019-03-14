@@ -1,19 +1,10 @@
 +++
-title = "About Hugo"
+title = "About"
 date = "2014-04-09"
 menu = "main"
-image = "header_img/bg-blog2.jpg"
+image = "header_img/hc-header.png"
 +++
 
-Hugo is the **world’s fastest framework for building websites**. It is written in Go.
+Throughout the years I have stumbled upon countless blogs and tutorials pitching in to explain a tiny scratch of what is going on in the ever growing universe of Data Science, or whatever you want to call it. Sometimes by an absent click, other times in hope of finding an answer to a specific question. Regardless the purpose or if I found what I was looking for, it has been of immense help and it is almost always useful to get somebody else's take on things. So this is my contribution, I hope somebody, sometime, somewhere, might get something out of it!
 
-It makes use of a variety of open source projects including:
-
-* https://github.com/russross/blackfriday
-* https://github.com/alecthomas/chroma
-* https://github.com/muesli/smartcrop
-* https://github.com/spf13/cobra
-* https://github.com/spf13/viper
-
-Learn more and contribute on [GitHub](https://github.com/gohugoio).
-
+This website was built using `blogdown` and Hugo. The theme is by [Jeffprod](https://en.jeffprod.com/), but has been slightly, and haphazardly, modified to suit my own style and taste.

@@ -3,7 +3,23 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>{{ .Site.Title }} {{ with .Title }} | {{ . }}{{ end }}</title>
+    {{ if eq .URL "/" }}
+    <title>{{ .Site.Title }}</title>
+    <meta property="og:title" content="{{ .Site.Title }}">
+    <meta property="og:type" content="website">
+    {{ else }}
+    <title>{{ .Title }} - {{ .Site.Title }}</title>
+    <meta property="og:title" content="{{ .Title }} - {{ .Site.Title }}">
+    {{ end }}
+    
+    {{ if eq .URL "/" }}
+    <meta property="description" content="{{ .Site.Params.description }}">
+    {{ else }}
+      {{ if .Description }}
+      <meta property="description" content="{{ .Description }}">
+      {{ end }}
+    {{ end }}
+    
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
@@ -53,7 +69,7 @@
     <!-- hero -->
     <section class="hero is-info is-medium">
         {{ if isset .Params "image" }}<div class="hero-body" style="background-image: url({{ .Params.image | absURL }});">
-        {{ else }}<div class="hero-body" style="background-image: url({{ "img/bg-blog.jpg" | absURL }});">
+        {{ else }}<div class="hero-body" style="background-image: url({{ "header_img/hc-header.png" | absURL }});">
         {{ end }}
             <div class="container has-text-centered">
                 <br>

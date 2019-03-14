@@ -1,6 +1,5 @@
 {{ define "main" }}
 {{ $paginator := .Paginate (where .Site.RegularPages "Section" "post").ByPublishDate.Reverse }}
-
 <div class="columns">
     <div class="column is-9">
         <div class="tile is-child box">

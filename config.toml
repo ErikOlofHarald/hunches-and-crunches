@@ -4,7 +4,7 @@ author = "Erik Andreasson"
 copyright = "Copyright © 2008–2018, Erik Andreasson"
 canonifyurls = true
 paginate = 3
-
+ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown$", "_files$", "_cache$"]
 theme = "hugo-blog-jeffprod"
 
 [permalinks]
@@ -13,8 +13,8 @@ theme = "hugo-blog-jeffprod"
 [taxonomies]
     tag = "tags"
     archive = "archives"
-
-ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown$", "_files$", "_cache$"]
+[params]
+    description = "A practical blog going to the bottom of things within the world of Data Science. Mostly R."
 
 # Remember keywords, decriptions. See lithium
 # Disqus etc. See lithium

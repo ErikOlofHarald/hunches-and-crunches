@@ -2,7 +2,7 @@
 title: 'XGBoost: Quality & Cover'
 author: Erik Andreasson
 date: '2019-03-07'
-slug: xgboost-quality-cover
+slug: xgboost-calculating-quality-cover
 categories:
   - Models
 tags:
@@ -11,6 +11,7 @@ tags:
   - xgboost
 archives: '2019'
 image: header_img/filename
+Description: "Explanations of how Quality and Cover, which can be found in the XGBoost model dump, are calculated."
 ---
 
 **Introduction**

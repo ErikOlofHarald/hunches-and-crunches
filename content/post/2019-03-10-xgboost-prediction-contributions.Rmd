@@ -1,0 +1,190 @@
+---
+title: 'XGBoost: prediction contributions'
+author: Erik Andreasson
+date: '2019-03-10'
+slug: xgboost-prediction-contributions-and-shap-values
+categories:
+  - Models
+tags:
+  - interpretability
+  - R
+  - xgboost
+archives: '2019'
+image: /header_img/tree.png
+Description: "Pracitcal examples of how prediction contributions, particularly SHAP values, are calculated in XGBoost."
+---
+
+**Introduction**
+
+In my [most recent post](/2019/03/07/xgboost-quality-cover) I had a look at the XGBoost model object. I went through the calculations behind Quality and Cover with the purpose of gaining a better intuition for how the algorithm works, but also to set the stage for how prediction contributions are calculated. Since November 2018 this is implemented as feature in the R interface. By setting `predcontrib = TRUE` the predict function returns a table containing each features contribution to the final prediction. There is one approximate method, that is faster, and one exact method. In this post I replicate the output from both methods and clarify what the difference is between the two.
+
+```{r message=FALSE, echo=FALSE}
+library(xgboost)
+library(insuranceData)
+data("SingaporeAuto")
+options(digits = 5)
+```
+
+**Poisson model**
+
+I'm working with the same insurance frequency model using four numerical features as input. The label is the number of claims on the policy during the exposure period, and the logarithm of this exposure period, expressed as a fraction of a year, is set as an offset.
+
+```{r}
+features <- as.matrix(SingaporeAuto[c("PC", "NCD", "AgeCat", "VAgeCat")])
+label <- SingaporeAuto$Clm_Count
+offset <- SingaporeAuto$LNWEIGHT
+dmat <- xgb.DMatrix(features, info = list(label = label, base_margin = offset))
+```
+
+As we're working with count data it makes sense to use a Poisson objective. Because of the log link function, setting `base_score = 1` means it won't affect the predictions. To keep things simple I'm using shallow trees with `max_depth = 2`. All other parameters takes default values.
+
+```{r}
+params <- list(
+  booster = "gbtree",
+  objective = "count:poisson",
+  max_depth = 2,
+  base_score = 1
+)
+```
+
+Two trees are grown and the model is dumped in a data table.
+
+```{r}
+bst <- xgb.train(params = params, data = dmat, nrounds = 2)
+dt <- xgb.model.dt.tree(model = bst)
+```
+
+The structure of the first tree is displayed below. If you're not familiar with this output I'd recommend you go back and read my previous post!
+
+```{r echo=FALSE}
+dt[Tree == 0]
+```
+
+**XGBoost feat. predcontrib**
+
+Denoting the sum of the first and second derivates of the loss function in node $j$ as $G_j$ and $H_j$ respectively, the weight can be calculated as
+$$w_j = -\frac{G_j}{H_j+\lambda}$$
+Both $G$ and $H$ are additive, meaning if we know these quantities in the child nodes, we can add them up in the parent node. So summing up Cover in the leaves of the first tree
+
+```{r}
+cat("Sum of Cover in leaves: ", sum(dt[Tree == 0 & Feature == "Leaf"]$Cover))
+```
+
+equals Cover in the root node. This means weights in all nodes can easily be decided making use of only leaf weights and Cover, as illustrated in the diagram below.
+
+![Diagram of tree 0](/img/tree.svg)
+
+Note that $\lambda$ is only explicitly involved when determining $w$ for terminal nodes. So when calculating $G_j$ as $w_jH_j=-\frac{H_j}{H_j+\lambda}G_j$ it's not exactly the same number as we would get from summing up the first derivatives in node $j$, unless $\lambda = 0$. Once we have the weights in all nodes of the tree, we can easily find the contribution from each feature for a given path as the difference in $w$ when going from one node to another.
+
+**xgboostExplainer explained**
+
+Taking the first observation in the dataset as an example.
+
+```{r echo=FALSE}
+features[1, ]
+```
+
+The example ends up in the 4th node of the first tree, so the contribution from `VAgeCat` is $w_1-w_0$ and `NCD` as $w_4-w_1$.
+
+```{r}
+for (i in 0:6) assign(paste0("h", i), dt[Tree == 0 & Node == i]$Cover) 
+for (i in 3:6) assign(paste0("w", i), dt[Tree == 0 & Node == i]$Quality) 
+
+w2 <- (w5 * h5 + w6 * h6) / h2
+w1 <- (w3 * h3 + w4 * h4) / h1
+w0 <- (w2 * h2 + w1 * h1) / h0
+
+pathwise <- c(0, w4 - w1, 0, w1 - w0, w0 + offset[1])
+names(pathwise) <- c("PC", "NCD", "AgeCat", "VAgeCat", "BIAS")
+pathwise
+```
+
+This is also what `predict()` returns when `approxcontrib = TRUE`
+
+```{r}
+predict(bst, dmat, predcontrib = TRUE, approxcontrib = TRUE, ntreelimit = 1)[1, ]
+```
+
+For those of you who are familiar with the `xgboostExplainer` package, this is what it's doing behind the scenes. To my knowledge it only workes with a binary logistic objective and I'm not sure how it handles setting a `base_margin`. But there is no need to use it anymore as the same functionality is integrated into the R interface, except for the waterfall charts, that is.
+
+**Chap, chap!**
+
+The above method has some drawbacks as it only considers the actual path for each observation. Intuitively we would like to assign impact based on change in prediction with and without a given feature in the model. But it turns out that order matters as well, making it necessary to consider all possible sequences. This is the logic behind SHAP values. The reasoning originates from Game Theory on how to fairly divide a payoff between a grouop of individuals with different skill sets. I'm not going into more detail than that, there are many other sources which explains what Shapley values are and why it makes sense. The purpose of this post is rather to give a practical example of how they are calculated in XGBoost, which is why we need this formula:
+$$\phi_i=\sum_{S\subseteq N\setminus \{i\}}\frac{\vert S \vert!(\vert N \vert - \vert S \vert - 1)!}{\vert N \vert !}[f_x({S \cup \{i\}}) - f_x(S)]$$
+We want to calculate $\phi_i$, i.e. the attribution assigned to feature $i$. From all features $N$ excluding $i$, all possible subsets $S$ are considered. The part in square brackets is the change in prediction when including and excluding $i$.
+
+Going back to our previous example, the observation ending up in node 4 in the first tree, there are only two features to consider, `NCD` and `VAgeCat`, as the other two are attributed zero importance. So when calculating $\phi_{NCD}$, $S$ contains either `VAgeCat` or the empty set. 
+$$\phi_{NCD} = \frac{0!(2-0-1)!}{2!}(w_{NCD}-w_0) + \frac{1!(2-1-1)!}{2!}(w_{VAgeCat,NCD}-w_{VAgeCat})$$
+This is the weighted average of the importances attributed to including `NCD` with and without `VAgeCat` in the model. To get the SHAP values from the first tree of our example observation the same calculation has to be done for $\phi_{VAgeCat}$
+
+```{r}
+# weight when only including NCD
+w_ncd <- (h1 * w4 + h5 * w5 + h6 * w6) / h0
+
+# weight when including both VAgeCat and NCD
+w_vagecat_ncd <- w4
+
+# weigth when only including VAgeCat
+w_vagecat <- (h3 * w3 + h4 * w4) / h1
+
+# Only root node
+w0 <- (h3 * w3 + h4 * w4 + h5 * w5 + h6 * w6) / h0
+
+shap <- c(
+  0,
+  ((w_ncd - w0) + (w_vagecat_ncd - w_vagecat)) / 2,
+  0,
+  ((w_vagecat - w0) + (w_vagecat_ncd - w_ncd)) / 2,
+  w0 + offset[1]
+)
+names(shap) <- c("PC", "NCD", "AgeCat", "VAgeCat", "BIAS")
+shap
+```
+
+Comparing this to the output from `predict()`, this time setting `approxcontrib = FALSE`, we get the same result.
+
+```{r}
+predict(bst, dmat, predcontrib = TRUE, approxcontrib = FALSE, ntreelimit = 1)[1, ]
+```
+
+These calculations have to be done for all trees and aggregated to get contributions from the entire ensamble. In our example, the second tree has the same structure as the first.
+
+```{r echo=FALSE}
+dt[Tree == 1]
+```
+
+So we can use the same calculations as before, only making sure we use the updated values for Cover and weight.
+
+```{r}
+for (i in 0:6) assign(paste0("h", i), dt[Tree == 1 & Node == i]$Cover) 
+for (i in 3:6) assign(paste0("w", i), dt[Tree == 1 & Node == i]$Quality)
+
+w_ncd <- (h1 * w4 + h5 * w5 + h6 * w6) / h0
+w_vagecat_ncd <- w4
+w_vagecat <- (h3 * w3 + h4 * w4) / h1
+w0 <- (h3 * w3 + h4 * w4 + h5 * w5 + h6 * w6) / h0
+
+shap + c(
+  0,
+  ((w_ncd - w0) + (w_vagecat_ncd - w_vagecat)) / 2,
+  0,
+  ((w_vagecat - w0) + (w_vagecat_ncd - w_ncd)) / 2,
+  w0
+)
+```
+
+Compared to the output from `predict()` to ensure we got the same result.
+
+```{r}
+predict(bst, dmat, predcontrib = TRUE, approxcontrib = FALSE)[1, ]
+```
+
+When dimensionality is increased, the number of combinations ofcourse grow drastically. Fortunatelly, there is some good optimization when applied to an XGBoost model object, which allows us to calculate these values in practice. 
+
+**Global importance**
+
+As a last note SHAP values are not only for feature attributions on individual observations. The mean magnitude of SHAP values can be used as a global importance metric, i.e. aggregated values over the entire dataset. In fact, unlike most other global importance measures (including Gain), this one is consistent. Menaning changing the model so that a feature has a larger impact will never decrease the attribution assigned to that feature. 
+
+**Summary**
+
+In this post I have described how prediction contributions are calculated when `approxcontrib = FALSE` (pathwise) and when `approxcontrib = TRUE` (SHAP values). There are a lot of other resources describing what SHAP values are and how they can be used. I recommend the papers written on the subject and also reading the blog post [Interpretable Machine Learning with XGBoost](https://towardsdatascience.com/interpretable-machine-learning-with-xgboost-9ec80d148d27) written by one of the authors behind the papers. SHAP doesn't only apply to XGBoost and tree based models, but can be used with any ML model, and there is a [Python package available](https://github.com/slundberg/shap).
