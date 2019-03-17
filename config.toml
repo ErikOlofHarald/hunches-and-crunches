@@ -15,10 +15,3 @@ theme = "hugo-blog-jeffprod"
     archive = "archives"
 [params]
     description = "A practical blog going to the bottom of things within the world of Data Science. Mostly R."
-
-# Remember keywords, decriptions. See lithium
-# Disqus etc. See lithium
-# Google analytics
-# Display categories?
-# Add params description. Lithium has desc for main site page, and can optionally add desc to posts.
-# See all metadata in lithium. og:title etc. Why are not all og: objects?

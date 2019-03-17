@@ -10,29 +10,30 @@ tags:
   - R
   - xgboost
 archives: '2019'
-image: header_img/filename
+image: header_img/xgboost-quality-and-cover.png
 Description: "Explanations of how Quality and Cover, which can be found in the XGBoost model dump, are calculated."
 ---
 
 **Introduction**
 
-I was going to write a post about how prediction contributions in XGBoost are calculated. But I quickly came to realize that it would be logical to go through some other calculations first, namely Quality and Cover. Although most of it is described in the documentation, a practical example is sometimes usefull. It has been very helpfull for me at least in gaining a better understanding of how the algorithm works. So in this post I will use the model dump as a starting point and simply explain the numbers and how they're affected by some of the input parameters
+I was going to write a post about how prediction contributions in XGBoost are calculated. But I quickly came to realize that it would be logical to go through a few other things first, namely Quality and Cover. Although this is all well described in the documentation, a practical example is sometimes useful. It has been very helpful for me at least in gaining a better understanding of how the algorithm works. So I will simply go through the model dump and try to explain how the numbers are calculated and affected by the model inputs. 
 
 ```{r message=FALSE, echo=FALSE}
 library(xgboost)
 library(insuranceData)
 data("SingaporeAuto")
+options(digits = 7)
 ```
 
 **The data**
 
-I'm using the `SingaporeAuto` dataset from the `insuranceData` R package, but it can be fetched from other sources as well. The dataset contains claim frequency from a general incurance auto portfolio together with a few policy holder characteristics. 
+I'm using the `SingaporeAuto` dataset from the `insuranceData` R package, but it can be fetched from other sources as well. The dataset contains claim frequency from a general insurance auto portfolio together with a few policy holder characteristics. 
 
 ```{r echo=FALSE}
 str(SingaporeAuto)
 ```
 
-The target, `Clm_Count`, is the number of claims during the year and `LNWEIGHT` is the logarithm of the exposure weight, i.e. the fraction of the year that the policy has been in force. Features ending with an integer are just pre-defined interactions. To keep things simple I'm only using `PC`, `NCD`, `AgeCat` and `VageCat`. The factors could contain some usefull information but would have to be encoded in a smart way and I'm just dropping them out of convenience. Besides, you're not allowed to use gender for pricing anyway!
+The target, `Clm_Count`, is the number of claims during the year and `LNWEIGHT` is the logarithm of the exposure weight, i.e. the fraction of the year that the policy has been in force. Features ending with an integer are just predefined interactions. To keep things simple I'm only using `PC`, `NCD`, `AgeCat` and `VageCat`. The factors could contain some useful information but would have to be encoded in a smart way and I'm just dropping them out of convenience. Besides, you're not allowed to use gender for pricing anyway!
 
 **Some kind of fish**
 
@@ -47,7 +48,7 @@ offset <- SingaporeAuto$LNWEIGHT
 dmat <- xgb.DMatrix(features, info = list(label = label, base_margin = offset))
 ```
 
-When specifying a poisson objective, `max_delta_step` defaults to 0.7 (explicitly written out below). We will see how this affects the calculations further down. I'm setting `max_depth` to 2 just to keep things simple and `base_score` to 1 so it doesn't affect our calculations (since we're using a log link and $log(1) = 0$). Other parameters are set to their default. Note that `subsample` needs to bet set to one for the numbers to add upp further down. Otherwise we'll have no way of knowing which observations were used for growing which tree. 
+When specifying a Poisson objective, `max_delta_step` defaults to 0.7 (explicitly written out below). We will see how this affects the calculations further down. I'm setting `max_depth` to two just to keep things simple and `base_score` to one so it doesn't affect our calculations (since we're using a log link and $log(1) = 0$). Other parameters are set to their defaults. Note that `subsample` needs to bet set to one for the numbers to add up further down. Otherwise we'll have no way of knowing which observations were used for growing which tree. 
 
 ```{r}
 params <- list(
@@ -70,7 +71,7 @@ dt <- xgb.model.dt.tree(model = bst)
 
 **Dumping XGBoost**
 
-The model dump contains information about trees, nodes, split criterions and paths. Information on the first tree is displayed below.
+The model dump contains information about trees, nodes, split criteria and paths. The first tree is displayed below.
 
 ```{r echo=FALSE}
 dt[Tree == 0]
@@ -87,7 +88,7 @@ You might recognize these as being returned from the importance function `xgb.im
 xgb.importance(model = bst)
 ```
 
-The function aggregates Quality, Cover and frequency by feature, excludig leaves. These values then gets normalized to 1. 
+The function aggregates Quality, Cover and frequency by feature excluding leaves, and then scales the values to unit range.
 
 ```{r}
 normalize <- function(x) x / sum(x)
@@ -105,11 +106,11 @@ for (j in setdiff(names(imp), "Feature")) {
 imp
 ```
 
-Ok, so that's all good. But in addition to the description above we can find out exactly how these quantities are calculated.
+That might bring some clarity to what's going on. But instead of using the results from the output table, we can also calculate these numbers ourselves. 
 
 **Taking derivatives**
 
-The value of the objective function in XGBoost depends only on two inputs; the first and second derivative of the loss function w.r.t. the predictons coming from the previous step, $\hat y^{t-1}$. So in any node $j$ (using the notation from the docs)
+The value of the objective function in XGBoost depends only on two inputs; the first and second derivative of the loss function w.r.t. the predictions coming from the previous step, $\hat y^{t-1}$. So in any node $j$ (using the notation from the docs)
 $$G_j=\sum_{i\in I_j}\partial_{\hat y_i^{t-1}}l(y_i, \hat y_i^{t-1})$$
 $$H_j=\sum_{i\in I_j}\partial_{\hat y_i^{t-1}}^2l(y_i, \hat y_i^{t-1})$$
 where $I_j$ is the set of data points belonging to the jth node. The optimal weights are calculated as
@@ -126,7 +127,7 @@ So to get $G$ and $H$, all we have to do is to sum up these two quantities.
 
 At this point we have everything we need to calculate Cover (which is just $H$) and Quality. We already know that Quality in the leaves are the weights, but in all other nodes it's Gain, which is defined as
 $$Gain=\frac{1}{2}\left[\frac{G_L^2}{H_L+\lambda}+\frac{G_R^2}{H_R+\lambda}-\frac{(G_L+G_R)^2}{H_L+H_R+\lambda}\right]-\gamma$$
-As described in the documentation it is the gain in loss reduction when splitting a node (the first two terms) compared to not splitting (third term). If this is not greater than zero we're better of staying where we are. This is also where gamma comes in to play; it sets a threshold for adding a new branch to the tree. In our case it was set to zero (the default), but if we would have set it to 0.3, Node 2 would not have been split and instead contained a leaf weight. 
+As described in the documentation it is the gain in loss reduction when splitting a node (the first two terms) compared to not splitting (third term). If this is not greater than zero we're better of staying where we are. This is also where `gamma` comes in to play; it sets a threshold for adding a new branch to the tree. In our case it was set to zero (the default), but if we would have set it to 0.3, Node 2 would not have been split and instead contained a leaf weight. This is demonstrated by the example below.
 
 ```{r}
 params0.3 <- params
@@ -135,10 +136,11 @@ bst0.3 <- xgb.train(params = params0.3, data = dmat, nrounds = 1L)
 xgb.model.dt.tree(model = bst0.3)
 ```
 
-To calculate Cover we should only have to sum up our predictions in a given node. However, this is one of the places where `max_delta_step` comes into play as it gets added in under the summation correcting all predictions. Taking the root node in the first tree as an example, we should sum up all initial predictions, which in this case is the offset.
+To calculate Cover we should only have to sum up our predictions in a given node. However, 
+`max_delta_step` gets added in under the summation sign. Taking the root node in the first tree as an example.
 
 ```{r}
-cat("Cover: ", sum(exp(offset + params$max_delta_step)))
+cat("Cover (root node of the first tree): ", sum(exp(offset + params$max_delta_step)))
 ```
 
 If we hadn't set an offset and instead used the default value of `base_score`, then all predictions at this stage would equal 0.5. To calculate Gain in the same node we just have to keep track of which observations go right and left.
@@ -167,7 +169,7 @@ gain <- GL ^ 2 / (HL + params$lambda) +
 cat("Quality: ", gain)
 ```
 
-In the best of worlds these numbers would be identical. I don't know why they differ on some decimal, but I'm just gonna go ahead and act as if they don't.
+In the best of worlds these numbers would be identical. I don't know why they differ on some decimal, but I'm just going to go ahead and act as if they don't.
 
 **Branching out**
 
@@ -193,7 +195,7 @@ cat("Quality: ", gainL)
 cat("\nCover: ", coverL)
 ```
 
-Yep, don't say it. Quality is not exactly the same as in the table, but hey, at least Cover is spot on! Finally, we can also calculate the leaf weights. You have probably noticed that using a low learning rate often requires more trees. This is because `eta` is multiplied in when calculating the weights thus requiring more steps to build up the predictions.
+Again, Quality is not exactly the same as in the table, but hey, at least Cover is spot on! Finally, we can also calculate leaf weights. You have probably noticed that using a low learning rate often requires more trees. This is because `eta` gets multiplied in when calculating the weights thus requiring additional trees to build up the predictions.
 
 ```{r results='hold'}
 wLL <- - GLL / (HLL + params$lambda) * params$eta
@@ -222,7 +224,7 @@ We can verify that we get the same value by first determining which path the fir
 features[1, ]
 ```
 
-The observation should end up in node 4 of the first tree.
+The observation should end up in node 4.
 
 ```{r results='hold'}
 cat("Adding weight and offset: ", dt[Tree == 0 & Node == 4]$Quality + offset[1])
@@ -237,7 +239,7 @@ cat("Cover: ", sum(exp(p + params$max_delta_step)))
 
 **Too much weight**
 
-As a last point I want to mention that weights get truncated by `max_delta_step` when it's set to a number grater than zero. This might not have any practical implications, but it could by worth knowing. It definitely had me confused for a while when I was trying to figure out why I didn't get the expected leaf weights. To demonstrate I'm multiplying the claim count by 100 for observations where the first split condition is true.
+As a last point I want to mention that weights get truncated by `max_delta_step` when set to a number grater than zero. This might not have any practical implications, but it could be worth knowing. It definitely had me confused for a while when I was trying to figure out why I didn't get the expected leaf weights. To demonstrate I'm multiplying the claim count by 100 for observations where the first split condition is true.
 
 ```{r}
 label100 <- ifelse(SingaporeAuto$VAgeCat < 4.5, label * 100, label)
@@ -246,7 +248,7 @@ bst100 <- xgb.train(params = params, data = dmat100, nrounds = 1)
 xgb.model.dt.tree(model = bst100)
 ```
 
-The first tree now looks a little different with Leaf 1 having the suspicious looking weight of 0.21. This is becasue it's been truncated by `max_delta_step` and then multplied by `eta`
+The first tree now looks a little different with Leaf 1 having the suspicious looking weight of 0.21. This is because it's been truncated by `max_delta_step` and then multiplied by `eta`
 
 ```{r}
 cat("Weight Leaf 1: ", params$eta * params$max_delta_step)
@@ -264,4 +266,4 @@ That's it. In this post I have described how
     + `max_delta_step` affects Cover and truncates the weights
     + `base_margin` and `base_score` are the initial predictions before the first tree
 
-In the next post I will have a look at prediction contributions using the `predcontrib` option in Xgboost predict function.
+In the next post I will have a look at prediction contributions using the `predcontrib` option.

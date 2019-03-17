@@ -10,13 +10,13 @@ tags:
   - R
   - xgboost
 archives: '2019'
-image: /header_img/tree.png
-Description: "Pracitcal examples of how prediction contributions, particularly SHAP values, are calculated in XGBoost."
+image: /header_img/xgboost-prediction-contributions.png
+Description: "Practical examples of how prediction contributions, particularly SHAP values, are calculated in XGBoost."
 ---
 
 **Introduction**
 
-In my [most recent post](/2019/03/07/xgboost-quality-cover) I had a look at the XGBoost model object. I went through the calculations behind Quality and Cover with the purpose of gaining a better intuition for how the algorithm works, but also to set the stage for how prediction contributions are calculated. Since November 2018 this is implemented as feature in the R interface. By setting `predcontrib = TRUE` the predict function returns a table containing each features contribution to the final prediction. There is one approximate method, that is faster, and one exact method. In this post I replicate the output from both methods and clarify what the difference is between the two.
+In my [most recent post](/2019/03/07/xgboost-quality-cover) I had a look at the XGBoost model object. I went through the calculations behind Quality and Cover with the purpose of gaining a better intuition for how the algorithm works, but also to set the stage for how prediction contributions are calculated. Since November 2018 this is implemented as a feature in the R interface. By setting `predcontrib = TRUE` the predict function returns a table containing each features contribution to the final prediction. There is one approximate method, that is faster, and one exact method. In this post I replicate the output from both methods and clarify what the differences are between the two.
 
 ```{r message=FALSE, echo=FALSE}
 library(xgboost)
@@ -27,7 +27,7 @@ options(digits = 5)
 
 **Poisson model**
 
-I'm working with the same insurance frequency model using four numerical features as input. The label is the number of claims on the policy during the exposure period, and the logarithm of this exposure period, expressed as a fraction of a year, is set as an offset.
+I'm working with the same insurance frequency model as last time, using four numerical features as input. The label is the number of claims on the policy during the exposure period, and the logarithm of this exposure period, expressed as a fraction of a year, is set as an offset.
 
 ```{r}
 features <- as.matrix(SingaporeAuto[c("PC", "NCD", "AgeCat", "VAgeCat")])
@@ -62,7 +62,7 @@ dt[Tree == 0]
 
 **XGBoost feat. predcontrib**
 
-Denoting the sum of the first and second derivates of the loss function in node $j$ as $G_j$ and $H_j$ respectively, the weight can be calculated as
+Denoting the sum of the first and second derivatives of the loss function in node $j$ as $G_j$ and $H_j$ respectively, the weight can be calculated as
 $$w_j = -\frac{G_j}{H_j+\lambda}$$
 Both $G$ and $H$ are additive, meaning if we know these quantities in the child nodes, we can add them up in the parent node. So summing up Cover in the leaves of the first tree
 
@@ -105,17 +105,17 @@ This is also what `predict()` returns when `approxcontrib = TRUE`
 predict(bst, dmat, predcontrib = TRUE, approxcontrib = TRUE, ntreelimit = 1)[1, ]
 ```
 
-For those of you who are familiar with the `xgboostExplainer` package, this is what it's doing behind the scenes. To my knowledge it only workes with a binary logistic objective and I'm not sure how it handles setting a `base_margin`. But there is no need to use it anymore as the same functionality is integrated into the R interface, except for the waterfall charts, that is.
+For those of you who are familiar with the `xgboostExplainer` package, this is what it's doing behind the scenes. To my knowledge it only works with a binary logistic objective and I'm not sure how it handles setting a `base_margin`. But there is no need to use it any more as the same functionality is integrated into the R interface, except for the waterfall charts, that is.
 
 **Chap, chap!**
 
-The above method has some drawbacks as it only considers the actual path for each observation. Intuitively we would like to assign impact based on change in prediction with and without a given feature in the model. But it turns out that order matters as well, making it necessary to consider all possible sequences. This is the logic behind SHAP values. The reasoning originates from Game Theory on how to fairly divide a payoff between a grouop of individuals with different skill sets. I'm not going into more detail than that, there are many other sources which explains what Shapley values are and why it makes sense. The purpose of this post is rather to give a practical example of how they are calculated in XGBoost, which is why we need this formula:
+The above method has some drawbacks as it only considers the actual path for each observation. Intuitively we would like to assign impact based on change in prediction with and without a given feature in the model. But it turns out that order matters as well, making it necessary to consider all possible sequences. This is the logic behind SHAP values. The reasoning originates from Game Theory on how to fairly divide a pay-off between a group of individuals with different skill sets. I'm not going into more detail than that, there are many other sources that explain what Shapley values are and why they make sense. The purpose of this post is rather to give a practical example of how they are calculated in XGBoost, which is why we need this formula:
 $$\phi_i=\sum_{S\subseteq N\setminus \{i\}}\frac{\vert S \vert!(\vert N \vert - \vert S \vert - 1)!}{\vert N \vert !}[f_x({S \cup \{i\}}) - f_x(S)]$$
-We want to calculate $\phi_i$, i.e. the attribution assigned to feature $i$. From all features $N$ excluding $i$, all possible subsets $S$ are considered. The part in square brackets is the change in prediction when including and excluding $i$.
+We want to calculate $\phi_i$, i.e. the attribution assigned to feature $i$. From all features $N$ excluding $i$, all possible subsets $S$ are considered. The part in square brackets is the change in prediction including and excluding feature $i$.
 
-Going back to our previous example, the observation ending up in node 4 in the first tree, there are only two features to consider, `NCD` and `VAgeCat`, as the other two are attributed zero importance. So when calculating $\phi_{NCD}$, $S$ contains either `VAgeCat` or the empty set. 
+Going back to our previous example, the observation ending up in node 4 in the first tree, there are only two features to consider, `NCD` and `VAgeCat`, as the other two are attributed zero importance. So when calculating $\phi_{NCD}$, $S$ contains either `VAgeCat` or the empty set
 $$\phi_{NCD} = \frac{0!(2-0-1)!}{2!}(w_{NCD}-w_0) + \frac{1!(2-1-1)!}{2!}(w_{VAgeCat,NCD}-w_{VAgeCat})$$
-This is the weighted average of the importances attributed to including `NCD` with and without `VAgeCat` in the model. To get the SHAP values from the first tree of our example observation the same calculation has to be done for $\phi_{VAgeCat}$
+where $w_0$ is the root node weight, i.e. the prediction from the empty tree. This is the weighted average of the importance attributed to `NCD` with and without `VAgeCat`. To find all SHAP values from the first tree for our example observation the same calculation has to be done for $\phi_{VAgeCat}$ as well.
 
 ```{r}
 # weight when only including NCD
@@ -147,7 +147,7 @@ Comparing this to the output from `predict()`, this time setting `approxcontrib 
 predict(bst, dmat, predcontrib = TRUE, approxcontrib = FALSE, ntreelimit = 1)[1, ]
 ```
 
-These calculations have to be done for all trees and aggregated to get contributions from the entire ensamble. In our example, the second tree has the same structure as the first.
+These calculations have to be done for all trees and aggregated to get contributions from the entire ensemble. In our example, the second tree has the same structure as the first.
 
 ```{r echo=FALSE}
 dt[Tree == 1]
@@ -179,12 +179,12 @@ Compared to the output from `predict()` to ensure we got the same result.
 predict(bst, dmat, predcontrib = TRUE, approxcontrib = FALSE)[1, ]
 ```
 
-When dimensionality is increased, the number of combinations ofcourse grow drastically. Fortunatelly, there is some good optimization when applied to an XGBoost model object, which allows us to calculate these values in practice. 
+When the number of features, trees and leaves are increased, the number of combinations grow drastically. Fortunately, there is some good optimization involved when applied to an XGBoost model object, which allows us to calculate these values in practice. 
 
 **Global importance**
 
-As a last note SHAP values are not only for feature attributions on individual observations. The mean magnitude of SHAP values can be used as a global importance metric, i.e. aggregated values over the entire dataset. In fact, unlike most other global importance measures (including Gain), this one is consistent. Menaning changing the model so that a feature has a larger impact will never decrease the attribution assigned to that feature. 
+As a last note SHAP values are not only for feature attributions on individual observations. The mean magnitude of SHAP values can be used as a global importance metric, i.e. aggregated values over the entire dataset. In fact, unlike most other global importance measures (including Gain), this one is consistent, meaning that changing the model so that a feature has a larger impact, will never decrease the attribution assigned to that feature. 
 
 **Summary**
 
-In this post I have described how prediction contributions are calculated when `approxcontrib = FALSE` (pathwise) and when `approxcontrib = TRUE` (SHAP values). There are a lot of other resources describing what SHAP values are and how they can be used. I recommend the papers written on the subject and also reading the blog post [Interpretable Machine Learning with XGBoost](https://towardsdatascience.com/interpretable-machine-learning-with-xgboost-9ec80d148d27) written by one of the authors behind the papers. SHAP doesn't only apply to XGBoost and tree based models, but can be used with any ML model, and there is a [Python package available](https://github.com/slundberg/shap).
+In this post I have described how prediction contributions are calculated when `approxcontrib = FALSE` (pathwise) and when `approxcontrib = TRUE` (SHAP values). There are a lot of other resources describing what SHAP values are and how they can be used. I recommend the papers written on the subject and also reading the blog post [Interpretable Machine Learning with XGBoost](https://towardsdatascience.com/interpretable-machine-learning-with-xgboost-9ec80d148d27) written by one of the authors behind the papers. SHAP doesn't only apply to XGBoost and tree based models, but can be used with any ML model, and there is a [Python package available here.](https://github.com/slundberg/shap).
