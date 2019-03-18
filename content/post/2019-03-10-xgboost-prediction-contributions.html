@@ -1,0 +1,149 @@
+---
+title: 'XGBoost: prediction contributions'
+author: Erik Andreasson
+date: '2019-03-10'
+slug: xgboost-prediction-contributions-and-shap-values
+categories:
+  - Models
+tags:
+  - interpretability
+  - R
+  - xgboost
+archives: '2019'
+image: /header_img/xgboost-prediction-contributions.png
+Description: "Practical examples of how prediction contributions, particularly SHAP values, are calculated in XGBoost."
+---
+
+
+
+<p><strong>Introduction</strong></p>
+<p>In my <a href="/2019/03/07/xgboost-quality-cover">most recent post</a> I had a look at the XGBoost model object. I went through the calculations behind Quality and Cover with the purpose of gaining a better intuition for how the algorithm works, but also to set the stage for how prediction contributions are calculated. Since November 2018 this is implemented as a feature in the R interface. By setting <code>predcontrib = TRUE</code> the predict function returns a table containing each features contribution to the final prediction. There is one approximate method, that is faster, and one exact method. In this post I replicate the output from both methods and clarify what the differences are between the two.</p>
+<p><strong>Poisson model</strong></p>
+<p>I’m working with the same insurance frequency model as last time, using four numerical features as input. The label is the number of claims on the policy during the exposure period, and the logarithm of this exposure period, expressed as a fraction of a year, is set as an offset.</p>
+<pre class="r"><code>features &lt;- as.matrix(SingaporeAuto[c(&quot;PC&quot;, &quot;NCD&quot;, &quot;AgeCat&quot;, &quot;VAgeCat&quot;)])
+label &lt;- SingaporeAuto$Clm_Count
+offset &lt;- SingaporeAuto$LNWEIGHT
+dmat &lt;- xgb.DMatrix(features, info = list(label = label, base_margin = offset))</code></pre>
+<p>As we’re working with count data it makes sense to use a Poisson objective. Because of the log link function, setting <code>base_score = 1</code> means it won’t affect the predictions. To keep things simple I’m using shallow trees with <code>max_depth = 2</code>. All other parameters takes default values.</p>
+<pre class="r"><code>params &lt;- list(
+  booster = &quot;gbtree&quot;,
+  objective = &quot;count:poisson&quot;,
+  max_depth = 2,
+  base_score = 1
+)</code></pre>
+<p>Two trees are grown and the model is dumped in a data table.</p>
+<pre class="r"><code>bst &lt;- xgb.train(params = params, data = dmat, nrounds = 2)
+dt &lt;- xgb.model.dt.tree(model = bst)</code></pre>
+<p>The structure of the first tree is displayed below. If you’re not familiar with this output I’d recommend you go back and read my previous post!</p>
+<pre><code>##    Tree Node  ID Feature Split  Yes   No Missing  Quality  Cover
+## 1:    0    0 0-0 VAgeCat   3.5  0-1  0-2     0-1  3.04995 7833.7
+## 2:    0    1 0-1     NCD  15.0  0-3  0-4     0-3  2.34278 5359.8
+## 3:    0    2 0-2 VAgeCat   4.5  0-5  0-6     0-5  0.29041 2473.9
+## 4:    0    3 0-3    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.11736 2338.2
+## 5:    0    4 0-4    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.13047 3021.6
+## 6:    0    5 0-5    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.13275 1025.4
+## 7:    0    6 0-6    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.14142 1448.5</code></pre>
+<p><strong>XGBoost feat. predcontrib</strong></p>
+<p>Denoting the sum of the first and second derivatives of the loss function in node <span class="math inline">\(j\)</span> as <span class="math inline">\(G_j\)</span> and <span class="math inline">\(H_j\)</span> respectively, the weight can be calculated as
+<span class="math display">\[w_j = -\frac{G_j}{H_j+\lambda}\]</span>
+Both <span class="math inline">\(G\)</span> and <span class="math inline">\(H\)</span> are additive, meaning if we know these quantities in the child nodes, we can add them up in the parent node. So summing up Cover in the leaves of the first tree</p>
+<pre class="r"><code>cat(&quot;Sum of Cover in leaves: &quot;, sum(dt[Tree == 0 &amp; Feature == &quot;Leaf&quot;]$Cover))</code></pre>
+<pre><code>## Sum of Cover in leaves:  7833.7</code></pre>
+<p>equals Cover in the root node. This means weights in all nodes can easily be decided making use of only leaf weights and Cover, as illustrated in the diagram below.</p>
+<div class="figure">
+<img src="/img/tree.svg" alt="Diagram of tree 0" />
+<p class="caption">Diagram of tree 0</p>
+</div>
+<p>Note that <span class="math inline">\(\lambda\)</span> is only explicitly involved when determining <span class="math inline">\(w\)</span> for terminal nodes. So when calculating <span class="math inline">\(G_j\)</span> as <span class="math inline">\(w_jH_j=-\frac{H_j}{H_j+\lambda}G_j\)</span> it’s not exactly the same number as we would get from summing up the first derivatives in node <span class="math inline">\(j\)</span>, unless <span class="math inline">\(\lambda = 0\)</span>. Once we have the weights in all nodes of the tree, we can easily find the contribution from each feature for a given path as the difference in <span class="math inline">\(w\)</span> when going from one node to another.</p>
+<p><strong>xgboostExplainer explained</strong></p>
+<p>Taking the first observation in the dataset as an example.</p>
+<pre><code>##      PC     NCD  AgeCat VAgeCat 
+##       0      30       0       0</code></pre>
+<p>The example ends up in the 4th node of the first tree, so the contribution from <code>VAgeCat</code> is <span class="math inline">\(w_1-w_0\)</span> and <code>NCD</code> as <span class="math inline">\(w_4-w_1\)</span>.</p>
+<pre class="r"><code>for (i in 0:6) assign(paste0(&quot;h&quot;, i), dt[Tree == 0 &amp; Node == i]$Cover) 
+for (i in 3:6) assign(paste0(&quot;w&quot;, i), dt[Tree == 0 &amp; Node == i]$Quality) 
+
+w2 &lt;- (w5 * h5 + w6 * h6) / h2
+w1 &lt;- (w3 * h3 + w4 * h4) / h1
+w0 &lt;- (w2 * h2 + w1 * h1) / h0
+
+pathwise &lt;- c(0, w4 - w1, 0, w1 - w0, w0 + offset[1])
+names(pathwise) &lt;- c(&quot;PC&quot;, &quot;NCD&quot;, &quot;AgeCat&quot;, &quot;VAgeCat&quot;, &quot;BIAS&quot;)
+pathwise</code></pre>
+<pre><code>##         PC        NCD     AgeCat    VAgeCat       BIAS 
+##  0.0000000 -0.0057163  0.0000000  0.0041308 -0.5322939</code></pre>
+<p>This is also what <code>predict()</code> returns when <code>approxcontrib = TRUE</code></p>
+<pre class="r"><code>predict(bst, dmat, predcontrib = TRUE, approxcontrib = TRUE, ntreelimit = 1)[1, ]</code></pre>
+<pre><code>##         PC        NCD     AgeCat    VAgeCat       BIAS 
+##  0.0000000 -0.0057163  0.0000000  0.0041308 -0.5322939</code></pre>
+<p>For those of you who are familiar with the <code>xgboostExplainer</code> package, this is what it’s doing behind the scenes. To my knowledge it only works with a binary logistic objective and I’m not sure how it handles setting a <code>base_margin</code>. But there is no need to use it any more as the same functionality is integrated into the R interface, except for the waterfall charts, that is.</p>
+<p><strong>Chap, chap!</strong></p>
+<p>The above method has some drawbacks as it only considers the actual path for each observation. Intuitively we would like to assign impact based on change in prediction with and without a given feature in the model. But it turns out that order matters as well, making it necessary to consider all possible sequences. This is the logic behind SHAP values. The reasoning originates from Game Theory on how to fairly divide a pay-off between a group of individuals with different skill sets. I’m not going into more detail than that, there are many other sources that explain what Shapley values are and why they make sense. The purpose of this post is rather to give a practical example of how they are calculated in XGBoost, which is why we need this formula:
+<span class="math display">\[\phi_i=\sum_{S\subseteq N\setminus \{i\}}\frac{\vert S \vert!(\vert N \vert - \vert S \vert - 1)!}{\vert N \vert !}[f_x({S \cup \{i\}}) - f_x(S)]\]</span>
+We want to calculate <span class="math inline">\(\phi_i\)</span>, i.e. the attribution assigned to feature <span class="math inline">\(i\)</span>. From all features <span class="math inline">\(N\)</span> excluding <span class="math inline">\(i\)</span>, all possible subsets <span class="math inline">\(S\)</span> are considered. The part in square brackets is the change in prediction including and excluding feature <span class="math inline">\(i\)</span>.</p>
+<p>Going back to our previous example, the observation ending up in node 4 in the first tree, there are only two features to consider, <code>NCD</code> and <code>VAgeCat</code>, as the other two are attributed zero importance. So when calculating <span class="math inline">\(\phi_{NCD}\)</span>, <span class="math inline">\(S\)</span> contains either <code>VAgeCat</code> or the empty set
+<span class="math display">\[\phi_{NCD} = \frac{0!(2-0-1)!}{2!}(w_{NCD}-w_0) + \frac{1!(2-1-1)!}{2!}(w_{VAgeCat,NCD}-w_{VAgeCat})\]</span>
+where <span class="math inline">\(w_0\)</span> is the root node weight, i.e. the prediction from the empty tree. This is the weighted average of the importance attributed to <code>NCD</code> with and without <code>VAgeCat</code>. To find all SHAP values from the first tree for our example observation the same calculation has to be done for <span class="math inline">\(\phi_{VAgeCat}\)</span> as well.</p>
+<pre class="r"><code># weight when only including NCD
+w_ncd &lt;- (h1 * w4 + h5 * w5 + h6 * w6) / h0
+
+# weight when including both VAgeCat and NCD
+w_vagecat_ncd &lt;- w4
+
+# weigth when only including VAgeCat
+w_vagecat &lt;- (h3 * w3 + h4 * w4) / h1
+
+# Only root node
+w0 &lt;- (h3 * w3 + h4 * w4 + h5 * w5 + h6 * w6) / h0
+
+shap &lt;- c(
+  0,
+  ((w_ncd - w0) + (w_vagecat_ncd - w_vagecat)) / 2,
+  0,
+  ((w_vagecat - w0) + (w_vagecat_ncd - w_ncd)) / 2,
+  w0 + offset[1]
+)
+names(shap) &lt;- c(&quot;PC&quot;, &quot;NCD&quot;, &quot;AgeCat&quot;, &quot;VAgeCat&quot;, &quot;BIAS&quot;)
+shap</code></pre>
+<pre><code>##         PC        NCD     AgeCat    VAgeCat       BIAS 
+##  0.0000000 -0.0048137  0.0000000  0.0032282 -0.5322939</code></pre>
+<p>Comparing this to the output from <code>predict()</code>, this time setting <code>approxcontrib = FALSE</code>, we get the same result.</p>
+<pre class="r"><code>predict(bst, dmat, predcontrib = TRUE, approxcontrib = FALSE, ntreelimit = 1)[1, ]</code></pre>
+<pre><code>##         PC        NCD     AgeCat    VAgeCat       BIAS 
+##  0.0000000 -0.0048137  0.0000000  0.0032282 -0.5322939</code></pre>
+<p>These calculations have to be done for all trees and aggregated to get contributions from the entire ensemble. In our example, the second tree has the same structure as the first.</p>
+<pre><code>##    Tree Node  ID Feature Split  Yes   No Missing  Quality   Cover
+## 1:    1    0 1-0 VAgeCat   3.5  1-1  1-2     1-1  3.37445 6886.69
+## 2:    1    1 1-1     NCD  15.0  1-3  1-4     1-3  2.54463 4731.29
+## 3:    1    2 1-2 VAgeCat   4.5  1-5  1-6     1-5  0.35581 2155.40
+## 4:    1    3 1-3    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.11343 2079.24
+## 5:    1    4 1-4    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.12789 2652.05
+## 6:    1    5 1-5    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.13045  897.91
+## 7:    1    6 1-6    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.14028 1257.49</code></pre>
+<p>So we can use the same calculations as before, only making sure we use the updated values for Cover and weight.</p>
+<pre class="r"><code>for (i in 0:6) assign(paste0(&quot;h&quot;, i), dt[Tree == 1 &amp; Node == i]$Cover) 
+for (i in 3:6) assign(paste0(&quot;w&quot;, i), dt[Tree == 1 &amp; Node == i]$Quality)
+
+w_ncd &lt;- (h1 * w4 + h5 * w5 + h6 * w6) / h0
+w_vagecat_ncd &lt;- w4
+w_vagecat &lt;- (h3 * w3 + h4 * w4) / h1
+w0 &lt;- (h3 * w3 + h4 * w4 + h5 * w5 + h6 * w6) / h0
+
+shap + c(
+  0,
+  ((w_ncd - w0) + (w_vagecat_ncd - w_vagecat)) / 2,
+  0,
+  ((w_vagecat - w0) + (w_vagecat_ncd - w_ncd)) / 2,
+  w0
+)</code></pre>
+<pre><code>##         PC        NCD     AgeCat    VAgeCat       BIAS 
+##  0.0000000 -0.0101738  0.0000000  0.0068194 -0.6584121</code></pre>
+<p>Compared to the output from <code>predict()</code> to ensure we got the same result.</p>
+<pre class="r"><code>predict(bst, dmat, predcontrib = TRUE, approxcontrib = FALSE)[1, ]</code></pre>
+<pre><code>##         PC        NCD     AgeCat    VAgeCat       BIAS 
+##  0.0000000 -0.0101738  0.0000000  0.0068194 -0.6584121</code></pre>
+<p>When the number of features, trees and leaves are increased, the number of combinations grow drastically. Fortunately, there is some good optimization involved when applied to an XGBoost model object, which allows us to calculate these values in practice.</p>
+<p><strong>Global importance</strong></p>
+<p>As a last note SHAP values are not only for feature attributions on individual observations. The mean magnitude of SHAP values can be used as a global importance metric, i.e. aggregated values over the entire dataset. In fact, unlike most other global importance measures (including Gain), this one is consistent, meaning that changing the model so that a feature has a larger impact, will never decrease the attribution assigned to that feature.</p>
+<p><strong>Summary</strong></p>
+<p>In this post I have described how prediction contributions are calculated when <code>approxcontrib = FALSE</code> (pathwise) and when <code>approxcontrib = TRUE</code> (SHAP values). There are a lot of other resources describing what SHAP values are and how they can be used. I recommend the papers written on the subject and also reading the blog post <a href="https://towardsdatascience.com/interpretable-machine-learning-with-xgboost-9ec80d148d27">Interpretable Machine Learning with XGBoost</a> written by one of the authors behind the papers. SHAP doesn’t only apply to XGBoost and tree based models, but can be used with any ML model, and there is a <a href="https://github.com/slundberg/shap">Python package available here.</a>.</p>

@@ -1,0 +1,233 @@
+---
+title: 'XGBoost: Quality & Cover'
+author: Erik Andreasson
+date: '2019-03-07'
+slug: xgboost-calculating-quality-cover
+categories:
+  - Models
+tags:
+  - interpretability
+  - R
+  - xgboost
+archives: '2019'
+image: header_img/xgboost-quality-and-cover.png
+Description: "Explanations of how Quality and Cover, which can be found in the XGBoost model dump, are calculated."
+---
+
+
+
+<p><strong>Introduction</strong></p>
+<p>I was going to write a post about how prediction contributions in XGBoost are calculated. But I quickly came to realize that it would be logical to go through a few other things first, namely Quality and Cover. Although this is all well described in the documentation, a practical example is sometimes useful. It has been very helpful for me at least in gaining a better understanding of how the algorithm works. So I will simply go through the model dump and try to explain how the numbers are calculated and affected by the model inputs.</p>
+<p><strong>The data</strong></p>
+<p>I’m using the <code>SingaporeAuto</code> dataset from the <code>insuranceData</code> R package, but it can be fetched from other sources as well. The dataset contains claim frequency from a general insurance auto portfolio together with a few policy holder characteristics.</p>
+<pre><code>## &#39;data.frame&#39;:    7483 obs. of  15 variables:
+##  $ SexInsured : Factor w/ 3 levels &quot;F&quot;,&quot;M&quot;,&quot;U&quot;: 3 3 3 3 3 3 3 3 3 3 ...
+##  $ Female     : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ VehicleType: Factor w/ 9 levels &quot;A&quot;,&quot;G&quot;,&quot;M&quot;,&quot;P&quot;,..: 7 7 7 7 7 7 3 3 3 3 ...
+##  $ PC         : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Clm_Count  : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Exp_weights: num  0.668 0.567 0.504 0.914 0.537 ...
+##  $ LNWEIGHT   : num  -0.4034 -0.5679 -0.6856 -0.0894 -0.6225 ...
+##  $ NCD        : int  30 30 30 20 20 20 20 20 20 20 ...
+##  $ AgeCat     : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ AutoAge0   : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ AutoAge1   : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ AutoAge2   : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ AutoAge    : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ VAgeCat    : int  0 0 0 0 0 0 6 6 6 6 ...
+##  $ VAgecat1   : int  2 2 2 2 2 2 6 6 6 6 ...</code></pre>
+<p>The target, <code>Clm_Count</code>, is the number of claims during the year and <code>LNWEIGHT</code> is the logarithm of the exposure weight, i.e. the fraction of the year that the policy has been in force. Features ending with an integer are just predefined interactions. To keep things simple I’m only using <code>PC</code>, <code>NCD</code>, <code>AgeCat</code> and <code>VageCat</code>. The factors could contain some useful information but would have to be encoded in a smart way and I’m just dropping them out of convenience. Besides, you’re not allowed to use gender for pricing anyway!</p>
+<p><strong>Some kind of fish</strong></p>
+<p>In insurance frequency models a Poisson distribution is often assumed using a log link function. To adjust for different exposure weights, these can be added as an offset after taking the logarithm. This is equivalent to dividing the target with the exposure ensuring that all observations are at an annualized rate.
+<span class="math display">\[log(\hat y_i) = \sum_{k=0}^{K}f_k(x_i) + log(exp.weight_i)\]</span>
+Here <span class="math inline">\(K\)</span> is the number of predictors. The offset is set as <code>base_margin</code> on the matrix object.</p>
+<pre class="r"><code>features &lt;- as.matrix(SingaporeAuto[c(&quot;PC&quot;, &quot;NCD&quot;, &quot;AgeCat&quot;, &quot;VAgeCat&quot;)])
+label &lt;- SingaporeAuto$Clm_Count
+offset &lt;- SingaporeAuto$LNWEIGHT
+dmat &lt;- xgb.DMatrix(features, info = list(label = label, base_margin = offset))</code></pre>
+<p>When specifying a Poisson objective, <code>max_delta_step</code> defaults to 0.7 (explicitly written out below). We will see how this affects the calculations further down. I’m setting <code>max_depth</code> to two just to keep things simple and <code>base_score</code> to one so it doesn’t affect our calculations (since we’re using a log link and <span class="math inline">\(log(1) = 0\)</span>). Other parameters are set to their defaults. Note that <code>subsample</code> needs to bet set to one for the numbers to add up further down. Otherwise we’ll have no way of knowing which observations were used for growing which tree.</p>
+<pre class="r"><code>params &lt;- list(
+  booster = &quot;gbtree&quot;,
+  objective = &quot;count:poisson&quot;,
+  eta = 0.3,
+  max_depth = 2,
+  max_delta_step = 0.7,
+  lambda = 1,
+  base_score = 1
+)</code></pre>
+<p>In this example I’m only growing two trees which are dumped to a data table by calling <code>xgb.model.dt.tree()</code></p>
+<pre class="r"><code>bst &lt;- xgb.train(params = params, data = dmat, nrounds = 2)
+dt &lt;- xgb.model.dt.tree(model = bst)</code></pre>
+<p><strong>Dumping XGBoost</strong></p>
+<p>The model dump contains information about trees, nodes, split criteria and paths. The first tree is displayed below.</p>
+<pre><code>##    Tree Node  ID Feature Split  Yes   No Missing    Quality    Cover
+## 1:    0    0 0-0 VAgeCat   3.5  0-1  0-2     0-1  3.0499489 7833.704
+## 2:    0    1 0-1     NCD  15.0  0-3  0-4     0-3  2.3427782 5359.799
+## 3:    0    2 0-2 VAgeCat   4.5  0-5  0-6     0-5  0.2904137 2473.904
+## 4:    0    3 0-3    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1173621 2338.160
+## 5:    0    4 0-4    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1304656 3021.639
+## 6:    0    5 0-5    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1327546 1025.383
+## 7:    0    6 0-6    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1414221 1448.521</code></pre>
+<p>The columns <code>Quality</code> and <code>Cover</code> are described in the documentation as</p>
+<ul>
+<li>Quality: either the split gain (change in loss) or the leaf value</li>
+<li>Cover: metric related to the number of observation either seen by a split or collected by a leaf during training.</li>
+</ul>
+<p>You might recognize these as being returned from the importance function <code>xgb.importance()</code></p>
+<pre class="r"><code>xgb.importance(model = bst)</code></pre>
+<pre><code>##    Feature      Gain     Cover Frequency
+## 1: VAgeCat 0.5912865 0.6572412 0.6666667
+## 2:     NCD 0.4087135 0.3427588 0.3333333</code></pre>
+<p>The function aggregates Quality, Cover and frequency by feature excluding leaves, and then scales the values to unit range.</p>
+<pre class="r"><code>normalize &lt;- function(x) x / sum(x)
+
+imp &lt;- dt[
+  Feature != &quot;Leaf&quot;,
+  .(Gain = sum(Quality), Cover = sum(Cover), Frequency = .N),
+  by = .(Feature)
+]
+
+for (j in setdiff(names(imp), &quot;Feature&quot;)) {
+  data.table::set(imp, j = j, value = normalize(imp[[j]]))
+}
+
+imp</code></pre>
+<pre><code>##    Feature      Gain     Cover Frequency
+## 1: VAgeCat 0.5912865 0.6572412 0.6666667
+## 2:     NCD 0.4087135 0.3427588 0.3333333</code></pre>
+<p>That might bring some clarity to what’s going on. But instead of using the results from the output table, we can also calculate these numbers ourselves.</p>
+<p><strong>Taking derivatives</strong></p>
+<p>The value of the objective function in XGBoost depends only on two inputs; the first and second derivative of the loss function w.r.t. the predictions coming from the previous step, <span class="math inline">\(\hat y^{t-1}\)</span>. So in any node <span class="math inline">\(j\)</span> (using the notation from the docs)
+<span class="math display">\[G_j=\sum_{i\in I_j}\partial_{\hat y_i^{t-1}}l(y_i, \hat y_i^{t-1})\]</span>
+<span class="math display">\[H_j=\sum_{i\in I_j}\partial_{\hat y_i^{t-1}}^2l(y_i, \hat y_i^{t-1})\]</span>
+where <span class="math inline">\(I_j\)</span> is the set of data points belonging to the jth node. The optimal weights are calculated as
+<span class="math display">\[w_j = -\frac{G_j}{H_j + \lambda}\]</span>
+where <span class="math inline">\(\lambda\)</span> is a regularization constant specified by the user. It shrinks the weights toward zero analogously to Ridge regression. Using the loss function
+<span class="math display">\[l(y, \hat y) = \hat\mu - ylog(\hat\mu)\]</span>
+where <span class="math inline">\(\hat\mu=exp(\hat y)\)</span> and taking derivatives with respect to <span class="math inline">\(\hat y\)</span> yields
+<span class="math display">\[\frac{\partial l}{\partial \hat y}=\frac{\partial l}{\partial \hat\mu}\frac{\partial \hat\mu}{\partial \hat y}=\left(1-\frac{y}{\hat\mu}\right)\hat\mu=\hat\mu - y\]</span>
+and
+<span class="math display">\[\frac{\partial^2 l}{\partial \hat y^2}=\frac{\partial}{\partial \hat y}\left(\hat\mu-y\right)=\hat\mu\]</span>
+So to get <span class="math inline">\(G\)</span> and <span class="math inline">\(H\)</span>, all we have to do is to sum up these two quantities.</p>
+<p><strong>No Cover, no Gain</strong></p>
+<p>At this point we have everything we need to calculate Cover (which is just <span class="math inline">\(H\)</span>) and Quality. We already know that Quality in the leaves are the weights, but in all other nodes it’s Gain, which is defined as
+<span class="math display">\[Gain=\frac{1}{2}\left[\frac{G_L^2}{H_L+\lambda}+\frac{G_R^2}{H_R+\lambda}-\frac{(G_L+G_R)^2}{H_L+H_R+\lambda}\right]-\gamma\]</span>
+As described in the documentation it is the gain in loss reduction when splitting a node (the first two terms) compared to not splitting (third term). If this is not greater than zero we’re better of staying where we are. This is also where <code>gamma</code> comes in to play; it sets a threshold for adding a new branch to the tree. In our case it was set to zero (the default), but if we would have set it to 0.3, Node 2 would not have been split and instead contained a leaf weight. This is demonstrated by the example below.</p>
+<pre class="r"><code>params0.3 &lt;- params
+params0.3$gamma &lt;- 0.3
+bst0.3 &lt;- xgb.train(params = params0.3, data = dmat, nrounds = 1L)
+xgb.model.dt.tree(model = bst0.3)</code></pre>
+<pre><code>##    Tree Node  ID Feature Split  Yes   No Missing    Quality    Cover
+## 1:    0    0 0-0 VAgeCat   3.5  0-1  0-2     0-1  3.0499489 7833.704
+## 2:    0    1 0-1     NCD  15.0  0-3  0-4     0-3  2.3427782 5359.799
+## 3:    0    2 0-2    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1378847 2473.904
+## 4:    0    3 0-3    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1173621 2338.160
+## 5:    0    4 0-4    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1304656 3021.639</code></pre>
+<p>To calculate Cover we should only have to sum up our predictions in a given node. However,
+<code>max_delta_step</code> gets added in under the summation sign. Taking the root node in the first tree as an example.</p>
+<pre class="r"><code>cat(&quot;Cover (root node of the first tree): &quot;, sum(exp(offset + params$max_delta_step)))</code></pre>
+<pre><code>## Cover (root node of the first tree):  7833.703</code></pre>
+<p>If we hadn’t set an offset and instead used the default value of <code>base_score</code>, then all predictions at this stage would equal 0.5. To calculate Gain in the same node we just have to keep track of which observations go right and left.</p>
+<pre class="r"><code># intial predictions
+mu &lt;- exp(offset)
+
+# indices of observations going left or right, the split criterian
+# comes from the model dump table
+L &lt;- which(SingaporeAuto$VAgeCat &lt; 3.5)
+R &lt;- which(SingaporeAuto$VAgeCat &gt; 3.5)
+
+# first derivates
+GL &lt;- sum(mu[L] - label[L])
+GR &lt;- sum(mu[R] - label[R])
+
+# second derivatives with max_delta_step added
+HL &lt;- sum(exp(offset[L] + params$max_delta_step))
+HR &lt;- sum(exp(offset[R] + params$max_delta_step))
+
+gain &lt;- GL ^ 2 / (HL + params$lambda) +
+  GR ^ 2 / (HR + params$lambda) -
+  (GL + GR ) ^ 2 / (HL + HR + params$lambda)
+
+cat(&quot;Quality: &quot;, gain)</code></pre>
+<pre><code>## Quality:  3.04999</code></pre>
+<p>In the best of worlds these numbers would be identical. I don’t know why they differ on some decimal, but I’m just going to go ahead and act as if they don’t.</p>
+<p><strong>Branching out</strong></p>
+<p>Continuing down the tree we can do the same calculations for the second layer as well, here just on the left branch.</p>
+<pre class="r"><code>LL &lt;- intersect(which(SingaporeAuto$NCD &lt; 15), L)
+LR &lt;- intersect(which(SingaporeAuto$NCD &gt; 15), L)
+
+GLL &lt;- sum(mu[LL] - label[LL])
+GLR &lt;- sum(mu[LR] - label[LR])
+
+HLL &lt;- sum(exp(offset[LL] + params$max_delta_step))
+HLR &lt;- sum(exp(offset[LR] + params$max_delta_step))
+
+gainL &lt;- GLL ^ 2 / (HLL + params$lambda) +
+  GLR ^ 2 / (HLR + params$lambda) -
+  (GLL + GLR ) ^ 2 / (HLL + HLR + params$lambda)
+
+coverL &lt;-sum(exp(offset[L] + params$max_delta_step))
+
+cat(&quot;Quality: &quot;, gainL)
+cat(&quot;\nCover: &quot;, coverL)</code></pre>
+<pre><code>## Quality:  2.342806
+## Cover:  5359.799</code></pre>
+<p>Again, Quality is not exactly the same as in the table, but hey, at least Cover is spot on! Finally, we can also calculate leaf weights. You have probably noticed that using a low learning rate often requires more trees. This is because <code>eta</code> gets multiplied in when calculating the weights thus requiring additional trees to build up the predictions.</p>
+<pre class="r"><code>wLL &lt;- - GLL / (HLL + params$lambda) * params$eta
+wLR &lt;- - GLR / (HLR + params$lambda) * params$eta
+cat(&quot;Weight node 3: &quot;, wLL)
+cat(&quot;\nWeight node 4: &quot;, wLR)</code></pre>
+<pre><code>## Weight node 3:  -0.1173621
+## Weight node 4:  -0.1304656</code></pre>
+<p><strong>Ascending the second tree</strong></p>
+<p>The second tree splits by the same features and conditions as the first, but Quality and Cover have changed as the predictions have been updated by the first tree.</p>
+<pre><code>##    Tree Node  ID Feature Split  Yes   No Missing    Quality     Cover
+## 1:    1    0 1-0 VAgeCat   3.5  1-1  1-2     1-1  3.3744485 6886.6934
+## 2:    1    1 1-1     NCD  15.0  1-3  1-4     1-3  2.5446322 4731.2920
+## 3:    1    2 1-2 VAgeCat   4.5  1-5  1-6     1-5  0.3558144 2155.4016
+## 4:    1    3 1-3    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1134273 2079.2393
+## 5:    1    4 1-4    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1278871 2652.0525
+## 6:    1    5 1-5    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1304543  897.9076
+## 7:    1    6 1-6    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt; -0.1402755 1257.4940</code></pre>
+<p>By setting <code>ntreelimit = 1</code>, the <code>predict()</code> function will return predictions after only adding the first tree.</p>
+<pre class="r"><code>p &lt;- predict(bst, dmat, ntreelimit = 1, outputmargin = TRUE)</code></pre>
+<p>We can verify that we get the same value by first determining which path the first observation took down the first tree, and then add up its offset and weight.</p>
+<pre><code>##      PC     NCD  AgeCat VAgeCat 
+##       0      30       0       0</code></pre>
+<p>The observation should end up in node 4.</p>
+<pre class="r"><code>cat(&quot;Adding weight and offset: &quot;, dt[Tree == 0 &amp; Node == 4]$Quality + offset[1])
+cat(&quot;\nOutput from predict(): &quot;, p[1])</code></pre>
+<pre><code>## Adding weight and offset:  -0.5338795
+## Output from predict():  -0.5338795</code></pre>
+<p>So to calculate cover for the root node in the second tree we should sum predictions from the first tree, remembering to take <code>max_delta_step</code> into account.</p>
+<pre class="r"><code>cat(&quot;Cover: &quot;, sum(exp(p + params$max_delta_step)))</code></pre>
+<pre><code>## Cover:  6886.694</code></pre>
+<p><strong>Too much weight</strong></p>
+<p>As a last point I want to mention that weights get truncated by <code>max_delta_step</code> when set to a number grater than zero. This might not have any practical implications, but it could be worth knowing. It definitely had me confused for a while when I was trying to figure out why I didn’t get the expected leaf weights. To demonstrate I’m multiplying the claim count by 100 for observations where the first split condition is true.</p>
+<pre class="r"><code>label100 &lt;- ifelse(SingaporeAuto$VAgeCat &lt; 4.5, label * 100, label)
+dmat100 &lt;- xgb.DMatrix(features, info = list(label = label100, base_margin = offset))
+bst100 &lt;- xgb.train(params = params, data = dmat100, nrounds = 1)
+xgb.model.dt.tree(model = bst100)</code></pre>
+<pre><code>##    Tree Node  ID Feature Split  Yes   No Missing       Quality      Cover
+## 1:    0    0 0-0 VAgeCat   4.5  0-1  0-2     0-1 1988.53577000 7833.70361
+## 2:    0    1 0-1    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt;    0.21000001 6385.18262
+## 3:    0    2 0-2     NCD  25.0  0-3  0-4     0-3    0.01097419 1448.52087
+## 4:    0    3 0-3    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt;   -0.14215256 1383.86572
+## 5:    0    4 0-4    Leaf    NA &lt;NA&gt; &lt;NA&gt;    &lt;NA&gt;   -0.12385987   64.65511</code></pre>
+<p>The first tree now looks a little different with Leaf 1 having the suspicious looking weight of 0.21. This is because it’s been truncated by <code>max_delta_step</code> and then multiplied by <code>eta</code></p>
+<pre class="r"><code>cat(&quot;Weight Leaf 1: &quot;, params$eta * params$max_delta_step)</code></pre>
+<pre><code>## Weight Leaf 1:  0.21</code></pre>
+<p><strong>Summary</strong></p>
+<p>That’s it. In this post I have described how</p>
+<ul>
+<li>the numbers in the model dump are calculated</li>
+<li>some of the parameters affect these numbers and how they impact the model. More specifically:
+<ul>
+<li><code>eta</code> gets multiplied with leaf weights</li>
+<li><code>lambda</code> shrinks weights toward zero</li>
+<li><code>gamma</code> sets a threshold for the Gain required to split a node</li>
+<li><code>max_delta_step</code> affects Cover and truncates the weights</li>
+<li><code>base_margin</code> and <code>base_score</code> are the initial predictions before the first tree</li>
+</ul></li>
+</ul>
+<p>In the next post I will have a look at prediction contributions using the <code>predcontrib</code> option.</p>

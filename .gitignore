@@ -1,7 +1,5 @@
 public/
-old-posts/
 .RData
 .Rhistory
 .Rproj.user/
-content/**/*.html
-other/
+misc/
