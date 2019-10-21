@@ -14,9 +14,6 @@ image: header_img/xgboost-quality-and-cover.png
 Description: "Explanations of how Quality and Cover, which can be found in the XGBoost model dump, are calculated."
 ---
 
-
-
-<p><strong>Introduction</strong></p>
 <p>I was going to write a post about how prediction contributions in XGBoost are calculated. But I quickly came to realize that it would be logical to go through a few other things first, namely Quality and Cover. Although this is all well described in the documentation, a practical example is sometimes useful. It has been very helpful for me at least in gaining a better understanding of how the algorithm works. So I will simply go through the model dump and try to explain how the numbers are calculated and affected by the model inputs.</p>
 <p><strong>The data</strong></p>
 <p>I’m using the <code>SingaporeAuto</code> dataset from the <code>insuranceData</code> R package, but it can be fetched from other sources as well. The dataset contains claim frequency from a general insurance auto portfolio together with a few policy holder characteristics.</p>

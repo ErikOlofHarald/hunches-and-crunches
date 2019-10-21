@@ -16,7 +16,6 @@ Description: "Practical examples of how prediction contributions, particularly S
 
 
 
-<p><strong>Introduction</strong></p>
 <p>In my <a href="/2019/03/07/xgboost-quality-cover">most recent post</a> I had a look at the XGBoost model object. I went through the calculations behind Quality and Cover with the purpose of gaining a better intuition for how the algorithm works, but also to set the stage for how prediction contributions are calculated. Since November 2018 this is implemented as a feature in the R interface. By setting <code>predcontrib = TRUE</code> the predict function returns a table containing each features contribution to the final prediction. There is one approximate method, that is faster, and one exact method. In this post I replicate the output from both methods and clarify what the differences are between the two.</p>
 <p><strong>Poisson model</strong></p>
 <p>I’m working with the same insurance frequency model as last time, using four numerical features as input. The label is the number of claims on the policy during the exposure period, and the logarithm of this exposure period, expressed as a fraction of a year, is set as an offset.</p>

@@ -14,8 +14,6 @@ image: /header_img/xgboost-prediction-contributions.png
 Description: "Practical examples of how prediction contributions, particularly SHAP values, are calculated in XGBoost."
 ---
 
-**Introduction**
-
 In my [most recent post](/2019/03/07/xgboost-quality-cover) I had a look at the XGBoost model object. I went through the calculations behind Quality and Cover with the purpose of gaining a better intuition for how the algorithm works, but also to set the stage for how prediction contributions are calculated. Since November 2018 this is implemented as a feature in the R interface. By setting `predcontrib = TRUE` the predict function returns a table containing each features contribution to the final prediction. There is one approximate method, that is faster, and one exact method. In this post I replicate the output from both methods and clarify what the differences are between the two.
 
 ```{r message=FALSE, echo=FALSE}

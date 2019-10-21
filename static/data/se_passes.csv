@@ -1,0 +1,266 @@
+"fixture","left","right","left_to_right","right_to_left"
+"England","Albin Ekdal","Andreas Granqvist",2,2
+"England","Albin Ekdal","Emil Forsberg",1,0
+"England","Albin Ekdal","Emil Krafth",4,3
+"England","Albin Ekdal","Ludwig Augustinsson",7,5
+"England","Albin Ekdal","Marcus Berg",0,1
+"England","Albin Ekdal","Martin Olsson",0,1
+"England","Albin Ekdal","Sebastian Larsson",4,1
+"England","Albin Ekdal","Victor Nilsson Lindelöf",4,3
+"England","Albin Ekdal","Viktor Claesson",3,0
+"England","Andreas Granqvist","Emil Forsberg",2,1
+"England","Andreas Granqvist","Emil Krafth",2,1
+"England","Andreas Granqvist","Ludwig Augustinsson",8,4
+"England","Andreas Granqvist","Martin Olsson",3,1
+"England","Andreas Granqvist","Pontus Jansson",0,1
+"England","Andreas Granqvist","Robin Olsen",2,3
+"England","Andreas Granqvist","Sebastian Larsson",3,3
+"England","Andreas Granqvist","Victor Nilsson Lindelöf",6,6
+"England","Andreas Granqvist","Viktor Claesson",1,0
+"England","Emil Forsberg","Emil Krafth",1,0
+"England","Emil Forsberg","Ludwig Augustinsson",7,5
+"England","Emil Forsberg","Marcus Berg",1,1
+"England","Emil Forsberg","Ola Toivonen",1,2
+"England","Emil Forsberg","Sebastian Larsson",0,3
+"England","Emil Forsberg","Viktor Claesson",2,3
+"England","Emil Krafth","Marcus Berg",2,1
+"England","Emil Krafth","Ola Toivonen",2,0
+"England","Emil Krafth","Robin Olsen",2,2
+"England","Emil Krafth","Sebastian Larsson",6,6
+"England","Emil Krafth","Victor Nilsson Lindelöf",4,11
+"England","Emil Krafth","Viktor Claesson",3,7
+"England","John Guidetti","Marcus Berg",1,0
+"England","John Guidetti","Martin Olsson",2,0
+"England","Ludwig Augustinsson","Marcus Berg",3,2
+"England","Ludwig Augustinsson","Martin Olsson",1,2
+"England","Ludwig Augustinsson","Ola Toivonen",3,2
+"England","Ludwig Augustinsson","Robin Olsen",3,1
+"England","Ludwig Augustinsson","Sebastian Larsson",0,3
+"England","Ludwig Augustinsson","Victor Nilsson Lindelöf",3,1
+"England","Marcus Berg","Ola Toivonen",2,3
+"England","Marcus Berg","Sebastian Larsson",1,0
+"England","Marcus Berg","Viktor Claesson",3,3
+"England","Martin Olsson","Sebastian Larsson",2,1
+"England","Ola Toivonen","Sebastian Larsson",2,0
+"England","Ola Toivonen","Viktor Claesson",2,3
+"England","Pontus Jansson","John Guidetti",2,0
+"England","Pontus Jansson","Sebastian Larsson",0,1
+"England","Pontus Jansson","Viktor Claesson",0,1
+"England","Robin Olsen","Albin Ekdal",1,0
+"England","Robin Olsen","Marcus Berg",1,0
+"England","Robin Olsen","Martin Olsson",1,0
+"England","Robin Olsen","Sebastian Larsson",1,1
+"England","Robin Olsen","Victor Nilsson Lindelöf",3,4
+"England","Sebastian Larsson","John Guidetti",1,0
+"England","Sebastian Larsson","Victor Nilsson Lindelöf",2,6
+"England","Sebastian Larsson","Viktor Claesson",6,1
+"England","Victor Nilsson Lindelöf","Emil Forsberg",1,0
+"England","Victor Nilsson Lindelöf","Ola Toivonen",1,0
+"England","Victor Nilsson Lindelöf","Viktor Claesson",6,4
+"England","Viktor Claesson","John Guidetti",4,0
+"England","Viktor Claesson","Ludwig Augustinsson",1,0
+"Germany","Albin Ekdal","Andreas Granqvist",1,1
+"Germany","Albin Ekdal","Emil Forsberg",0,2
+"Germany","Albin Ekdal","Ludwig Augustinsson",7,2
+"Germany","Albin Ekdal","Marcus Berg",0,3
+"Germany","Albin Ekdal","Sebastian Larsson",2,6
+"Germany","Albin Ekdal","Victor Nilsson Lindelöf",1,0
+"Germany","Albin Ekdal","Viktor Claesson",1,1
+"Germany","Andreas Granqvist","Emil Forsberg",1,0
+"Germany","Andreas Granqvist","Ludwig Augustinsson",2,3
+"Germany","Andreas Granqvist","Marcus Berg",1,0
+"Germany","Andreas Granqvist","Ola Toivonen",2,0
+"Germany","Andreas Granqvist","Sebastian Larsson",2,1
+"Germany","Andreas Granqvist","Victor Nilsson Lindelöf",1,2
+"Germany","Emil Forsberg","Ludwig Augustinsson",2,6
+"Germany","Emil Forsberg","Marcus Berg",1,3
+"Germany","Emil Forsberg","Ola Toivonen",1,2
+"Germany","Emil Forsberg","Sebastian Larsson",2,0
+"Germany","Emil Forsberg","Viktor Claesson",1,2
+"Germany","Jimmy Durmaz","John Guidetti",1,0
+"Germany","Jimmy Durmaz","Mikael Lustig",1,1
+"Germany","Jimmy Durmaz","Sebastian Larsson",1,0
+"Germany","John Guidetti","Marcus Berg",1,0
+"Germany","Ludwig Augustinsson","Marcus Berg",1,3
+"Germany","Ludwig Augustinsson","Ola Toivonen",0,1
+"Germany","Ludwig Augustinsson","Sebastian Larsson",2,2
+"Germany","Ludwig Augustinsson","Victor Nilsson Lindelöf",2,0
+"Germany","Marcus Berg","Mikael Lustig",2,2
+"Germany","Marcus Berg","Ola Toivonen",0,1
+"Germany","Marcus Berg","Sebastian Larsson",0,3
+"Germany","Marcus Berg","Viktor Claesson",3,4
+"Germany","Mikael Lustig","Emil Forsberg",1,0
+"Germany","Mikael Lustig","Isaac Kiese Thelin",1,0
+"Germany","Mikael Lustig","John Guidetti",2,0
+"Germany","Mikael Lustig","Ola Toivonen",1,1
+"Germany","Mikael Lustig","Robin Olsen",1,0
+"Germany","Mikael Lustig","Sebastian Larsson",4,2
+"Germany","Mikael Lustig","Victor Nilsson Lindelöf",0,3
+"Germany","Mikael Lustig","Viktor Claesson",3,1
+"Germany","Ola Toivonen","Robin Olsen",1,0
+"Germany","Ola Toivonen","Sebastian Larsson",2,0
+"Germany","Ola Toivonen","Viktor Claesson",1,4
+"Germany","Robin Olsen","Marcus Berg",1,0
+"Germany","Robin Olsen","Sebastian Larsson",0,2
+"Germany","Robin Olsen","Victor Nilsson Lindelöf",1,2
+"Germany","Robin Olsen","Viktor Claesson",1,0
+"Germany","Sebastian Larsson","Isaac Kiese Thelin",1,0
+"Germany","Sebastian Larsson","Victor Nilsson Lindelöf",7,4
+"Germany","Sebastian Larsson","Viktor Claesson",1,0
+"Germany","Victor Nilsson Lindelöf","Ola Toivonen",2,0
+"Germany","Victor Nilsson Lindelöf","Viktor Claesson",1,0
+"Mexico","Albin Ekdal","Andreas Granqvist",4,3
+"Mexico","Albin Ekdal","Emil Forsberg",1,1
+"Mexico","Albin Ekdal","Ludwig Augustinsson",0,1
+"Mexico","Albin Ekdal","Marcus Berg",1,2
+"Mexico","Albin Ekdal","Mikael Lustig",1,0
+"Mexico","Albin Ekdal","Ola Toivonen",4,2
+"Mexico","Albin Ekdal","Sebastian Larsson",0,1
+"Mexico","Albin Ekdal","Victor Nilsson Lindelöf",1,1
+"Mexico","Albin Ekdal","Viktor Claesson",2,1
+"Mexico","Andreas Granqvist","Emil Forsberg",1,1
+"Mexico","Andreas Granqvist","Ludwig Augustinsson",4,1
+"Mexico","Andreas Granqvist","Marcus Berg",2,0
+"Mexico","Andreas Granqvist","Mikael Lustig",2,0
+"Mexico","Andreas Granqvist","Ola Toivonen",2,0
+"Mexico","Andreas Granqvist","Oscar Hiljemark",1,0
+"Mexico","Andreas Granqvist","Robin Olsen",2,1
+"Mexico","Andreas Granqvist","Victor Nilsson Lindelöf",2,2
+"Mexico","Andreas Granqvist","Viktor Claesson",0,1
+"Mexico","Emil Forsberg","Gustav Svensson",0,1
+"Mexico","Emil Forsberg","Isaac Kiese Thelin",2,0
+"Mexico","Emil Forsberg","Ludwig Augustinsson",2,1
+"Mexico","Emil Forsberg","Marcus Berg",3,2
+"Mexico","Emil Forsberg","Ola Toivonen",6,3
+"Mexico","Emil Forsberg","Sebastian Larsson",0,3
+"Mexico","Emil Forsberg","Viktor Claesson",1,1
+"Mexico","Gustav Svensson","Albin Ekdal",1,0
+"Mexico","Gustav Svensson","Ludwig Augustinsson",1,0
+"Mexico","Gustav Svensson","Ola Toivonen",1,1
+"Mexico","Isaac Kiese Thelin","Viktor Claesson",3,1
+"Mexico","Ludwig Augustinsson","Marcus Berg",0,1
+"Mexico","Ludwig Augustinsson","Ola Toivonen",1,1
+"Mexico","Ludwig Augustinsson","Robin Olsen",4,0
+"Mexico","Ludwig Augustinsson","Sebastian Larsson",1,0
+"Mexico","Marcus Berg","Mikael Lustig",0,3
+"Mexico","Marcus Berg","Ola Toivonen",3,6
+"Mexico","Marcus Berg","Sebastian Larsson",1,1
+"Mexico","Marcus Berg","Viktor Claesson",5,2
+"Mexico","Mikael Lustig","Emil Forsberg",1,0
+"Mexico","Mikael Lustig","Ola Toivonen",1,0
+"Mexico","Mikael Lustig","Sebastian Larsson",2,1
+"Mexico","Mikael Lustig","Victor Nilsson Lindelöf",1,1
+"Mexico","Mikael Lustig","Viktor Claesson",2,1
+"Mexico","Ola Toivonen","Isaac Kiese Thelin",1,0
+"Mexico","Ola Toivonen","Sebastian Larsson",2,4
+"Mexico","Ola Toivonen","Viktor Claesson",1,1
+"Mexico","Sebastian Larsson","Victor Nilsson Lindelöf",1,0
+"Mexico","Sebastian Larsson","Viktor Claesson",0,2
+"Mexico","Victor Nilsson Lindelöf","Isaac Kiese Thelin",1,0
+"Mexico","Victor Nilsson Lindelöf","Ola Toivonen",3,0
+"South Korea","Albin Ekdal","Andreas Granqvist",9,14
+"South Korea","Albin Ekdal","Emil Forsberg",10,9
+"South Korea","Albin Ekdal","Ludwig Augustinsson",12,7
+"South Korea","Albin Ekdal","Marcus Berg",1,0
+"South Korea","Albin Ekdal","Mikael Lustig",2,0
+"South Korea","Albin Ekdal","Ola Toivonen",1,1
+"South Korea","Albin Ekdal","Pontus Jansson",8,7
+"South Korea","Albin Ekdal","Sebastian Larsson",10,7
+"South Korea","Albin Ekdal","Viktor Claesson",3,2
+"South Korea","Andreas Granqvist","Emil Forsberg",8,6
+"South Korea","Andreas Granqvist","Ludwig Augustinsson",6,3
+"South Korea","Andreas Granqvist","Marcus Berg",2,0
+"South Korea","Andreas Granqvist","Mikael Lustig",2,1
+"South Korea","Andreas Granqvist","Ola Toivonen",3,0
+"South Korea","Andreas Granqvist","Oscar Hiljemark",0,1
+"South Korea","Andreas Granqvist","Pontus Jansson",5,18
+"South Korea","Andreas Granqvist","Robin Olsen",2,3
+"South Korea","Andreas Granqvist","Sebastian Larsson",12,11
+"South Korea","Andreas Granqvist","Viktor Claesson",2,1
+"South Korea","Emil Forsberg","Isaac Kiese Thelin",0,1
+"South Korea","Emil Forsberg","Ludwig Augustinsson",5,6
+"South Korea","Emil Forsberg","Marcus Berg",2,1
+"South Korea","Emil Forsberg","Sebastian Larsson",3,6
+"South Korea","Emil Forsberg","Viktor Claesson",1,3
+"South Korea","Gustav Svensson","Mikael Lustig",2,0
+"South Korea","Isaac Kiese Thelin","Gustav Svensson",1,0
+"South Korea","Isaac Kiese Thelin","Ludwig Augustinsson",1,0
+"South Korea","Ludwig Augustinsson","Pontus Jansson",2,1
+"South Korea","Ludwig Augustinsson","Robin Olsen",1,2
+"South Korea","Ludwig Augustinsson","Sebastian Larsson",3,2
+"South Korea","Marcus Berg","Isaac Kiese Thelin",1,0
+"South Korea","Marcus Berg","Mikael Lustig",1,1
+"South Korea","Marcus Berg","Ola Toivonen",1,1
+"South Korea","Marcus Berg","Sebastian Larsson",0,2
+"South Korea","Marcus Berg","Viktor Claesson",3,3
+"South Korea","Mikael Lustig","Ludwig Augustinsson",1,0
+"South Korea","Mikael Lustig","Ola Toivonen",0,1
+"South Korea","Mikael Lustig","Oscar Hiljemark",1,2
+"South Korea","Mikael Lustig","Pontus Jansson",6,4
+"South Korea","Mikael Lustig","Robin Olsen",1,0
+"South Korea","Mikael Lustig","Sebastian Larsson",6,7
+"South Korea","Mikael Lustig","Viktor Claesson",6,3
+"South Korea","Ola Toivonen","Oscar Hiljemark",1,0
+"South Korea","Ola Toivonen","Robin Olsen",0,1
+"South Korea","Ola Toivonen","Sebastian Larsson",1,2
+"South Korea","Ola Toivonen","Viktor Claesson",5,3
+"South Korea","Oscar Hiljemark","Marcus Berg",1,0
+"South Korea","Oscar Hiljemark","Sebastian Larsson",1,0
+"South Korea","Pontus Jansson","Ola Toivonen",1,0
+"South Korea","Pontus Jansson","Robin Olsen",2,2
+"South Korea","Pontus Jansson","Sebastian Larsson",14,12
+"South Korea","Pontus Jansson","Viktor Claesson",2,0
+"South Korea","Robin Olsen","Sebastian Larsson",1,1
+"South Korea","Sebastian Larsson","Viktor Claesson",3,6
+"South Korea","Viktor Claesson","Gustav Svensson",1,0
+"South Korea","Viktor Claesson","Oscar Hiljemark",1,0
+"Switzerland","Albin Ekdal","Andreas Granqvist",2,1
+"Switzerland","Albin Ekdal","Emil Forsberg",7,2
+"Switzerland","Albin Ekdal","Emil Krafth",1,0
+"Switzerland","Albin Ekdal","Ludwig Augustinsson",3,1
+"Switzerland","Albin Ekdal","Marcus Berg",3,5
+"Switzerland","Albin Ekdal","Martin Olsson",1,1
+"Switzerland","Albin Ekdal","Mikael Lustig",2,2
+"Switzerland","Albin Ekdal","Ola Toivonen",3,0
+"Switzerland","Albin Ekdal","Victor Nilsson Lindelöf",1,1
+"Switzerland","Albin Ekdal","Viktor Claesson",2,4
+"Switzerland","Andreas Granqvist","Emil Forsberg",2,1
+"Switzerland","Andreas Granqvist","Gustav Svensson",2,3
+"Switzerland","Andreas Granqvist","Ludwig Augustinsson",2,1
+"Switzerland","Andreas Granqvist","Marcus Berg",1,0
+"Switzerland","Andreas Granqvist","Robin Olsen",3,3
+"Switzerland","Andreas Granqvist","Victor Nilsson Lindelöf",7,6
+"Switzerland","Emil Forsberg","Gustav Svensson",1,1
+"Switzerland","Emil Forsberg","Ludwig Augustinsson",6,4
+"Switzerland","Emil Forsberg","Marcus Berg",2,0
+"Switzerland","Emil Forsberg","Ola Toivonen",4,6
+"Switzerland","Emil Forsberg","Viktor Claesson",2,3
+"Switzerland","Emil Krafth","Isaac Kiese Thelin",1,0
+"Switzerland","Emil Krafth","Viktor Claesson",1,1
+"Switzerland","Gustav Svensson","Albin Ekdal",2,0
+"Switzerland","Gustav Svensson","Ludwig Augustinsson",0,1
+"Switzerland","Gustav Svensson","Marcus Berg",1,0
+"Switzerland","Gustav Svensson","Mikael Lustig",5,2
+"Switzerland","Gustav Svensson","Ola Toivonen",1,0
+"Switzerland","Gustav Svensson","Victor Nilsson Lindelöf",2,3
+"Switzerland","Isaac Kiese Thelin","Albin Ekdal",1,0
+"Switzerland","Isaac Kiese Thelin","Martin Olsson",1,0
+"Switzerland","Isaac Kiese Thelin","Viktor Claesson",0,1
+"Switzerland","Ludwig Augustinsson","Marcus Berg",2,2
+"Switzerland","Ludwig Augustinsson","Ola Toivonen",1,0
+"Switzerland","Marcus Berg","Martin Olsson",1,0
+"Switzerland","Marcus Berg","Mikael Lustig",2,2
+"Switzerland","Marcus Berg","Ola Toivonen",1,5
+"Switzerland","Marcus Berg","Viktor Claesson",3,6
+"Switzerland","Mikael Lustig","Ola Toivonen",2,1
+"Switzerland","Mikael Lustig","Robin Olsen",1,1
+"Switzerland","Mikael Lustig","Victor Nilsson Lindelöf",3,4
+"Switzerland","Mikael Lustig","Viktor Claesson",1,5
+"Switzerland","Ola Toivonen","Viktor Claesson",1,1
+"Switzerland","Robin Olsen","Albin Ekdal",1,0
+"Switzerland","Robin Olsen","Gustav Svensson",1,0
+"Switzerland","Robin Olsen","Marcus Berg",1,0
+"Switzerland","Robin Olsen","Victor Nilsson Lindelöf",1,5
+"Switzerland","Robin Olsen","Viktor Claesson",1,0
+"Switzerland","Victor Nilsson Lindelöf","Viktor Claesson",2,0
+"Switzerland","Viktor Claesson","Gustav Svensson",1,0

@@ -1,0 +1,297 @@
+---
+title: 'Custom data visualisation with d3.js'
+author: Erik Andreasson
+date: '2019-10-21'
+slug: custom-data-viz-with-d3
+categories:
+  - visualisations
+tags:
+  - D3.js
+archives: '2019'
+image: header_img/custom-data-viz-with-d3js.png
+Description: "Example d3.js chord diagram visualisation."
+---
+
+<script src="/js/d3.min.js"></script>
+<script src="/js/chordMatrix.js"></script>
+<script src="/js/drawChords.js"></script>
+
+<p>When it comes to creating fast and good looking visualisations there's no better package than ggplot (my personal opinion). Implementing the grammar of graphics it's concise and intuitive allowing you to produce advanced plots in only a few lines of code. This is extremely helpful when performing EDA where I tend to produce a large amount of visualisations in order to familiarise myself with the data. If you want something interactive though, you have to turn elsewhere. For these cases plotly is a very good alternative. Especially in combination with Shiny if you're building dashboards (or using DASH). Every once in a while, however, you find yourself in the need of something higly customised. When all the tweaking and work arounds have only taken you so far, what are the alternatives? Well, since plotly is built on d3.js, I thought it could be worth exploring. So I signed up for a Udemy course.</p>
+<p><strong>One Udemy course later...</strong></p>
+One thing to note about d3 is that you have to set everything up for yourself. Axes, scales, labels, everything. Your data is represented by binding observations to SVGs which can be points, paths, rectangles, etc. Having produced a lot of line, bar and donut charts during the course I felt I was ready for something a bit more challenging, like a chord diagram. One of many good things with open source is that there are a lot of good examples and most likely someone has already made something similar to what you want to do. D3 is no different; there's a lot of free and open source licenced code you can modify to your needs instead of having to write everything from scratch. Below I have extensively used <a href="https://www.delimited.io/blog/2014/11/18/interactive-chord-diagrams-in-d3">Delimited.io</a>.
+<div id="mychart"></div>
+<div class="columns">
+  <div class="column is-one-quarter" style="text-align: center">
+    <p>Opponent:</p>
+    <select id="fixtures-dd" onchange="filterData()"></select>
+  </div>
+  <div class="column is-one-quarter" style="text-align: center">
+    <p>Min passes: <span id="thresholdLabel">0</span></p>
+    <input step="1" min="0" max="10" value="0" type="range" oninput="displayThreshold(this.value)">
+  </div>
+  <div class="column is-one-half" style="height: 150px;">
+    <p>Filtered players:</P>
+    <div id="players-box"></div>
+  </div>
+</div>
+<p>The chord diagram represents passes between players in the Swedish national team during the World Cup 2018 in Russia. Arches represent the total number passes played and chords are coloured according to the player who has made the most passes between any given pair. There are three filters:</p>
+<ul>
+<li>Switch between games by opponent</li>
+<li>A threshold for the minimum amount of passes between two players</li>
+<li>Exclude/include any player by clicking on the name</li>
+</ul>
+<p>You can also hover over chords to see an info box with the numbers explicitly written out.</p>
+<p>Chord diagrams are good for visualising flows between groups, but I find the arcs, or group sizes, hard to compare when differences are small. Including an axis would help, but in cases when there are only a few groups a stacked bar chart would probably be the better option. The chart does, however, communicate a lot of information at the glance of an eye. The archs are sorted clockwise and you can easily see which players make more passes than they receive just by looking at the colours of the chords leading up to each player (unless your colour blind). There are, of course, much better ways to visualise a passing network if you have the coordinates. Overlaying a football pitch would also convey where on the pitch the passes have been made.</p>
+<p><strong>The data</strong></p>
+<div>
+<img src="/img/statsbomb-logo.jpg" alt="statsbomb-logo" style="width: 335px;height: 85px"/>  
+</div>
+<p>Statsbomb are some really nice people that provide a free football data repository on Github. The data comes in JSON files that contain every event that took place on the pitch, and it's free! To get it into a format that can be used with this particular visualisation you have to wrangle it a bit.</p>
+<pre class="r"><code>library(jsonlite)
+library(dplyr)
+library(purrr)
+library(tidyr)
+
+team_id &lt;- 790
+
+# 43 indicates FIFA World Cup 2018
+matches &lt;- read_json("data/matches/43.json", simplifyVector = TRUE)
+
+fixtures &lt;- tibble(
+  match_id = as.character(matches$match_id),
+  home_team = matches$home_team$home_team_name,
+  away_team = matches$away_team$away_team_name
+)
+
+mask &lt;- (matches$home_team$home_team_id == team_id) |
+    (matches$away_team$away_team_id == team_id)
+
+ids &lt;- matches$match_id[mask]
+
+read_events &lt;- function(id) {
+  f_name &lt;- paste0("data/events/", id, ".json")
+  event &lt;- read_json(f_name, simplifyVector = TRUE)
+}
+
+events &lt;- setNames(lapply(ids, read_events), ids)
+
+count_passes &lt;- function(df, team_id) {
+  mask &lt;- (df$type$id == 30) &
+    ((df$pass$type$id %in% c(64, 66)) | is.na(df$pass$type$id)) &
+    is.na(df$pass$outcome$id) &
+    (df$team$id == team_id)
+  
+  
+  df %>%
+    filter(mask) %>%
+    mutate(from = player$name, to = pass$recipient$name) %>%
+    count(from, to)
+}
+
+passes &lt;- map_dfr(events, count_passes, team_id = team_id, .id = "match_id") %>%
+  inner_join(fixtures, by = "match_id") %>%
+  mutate(fixture = ifelse(home_team == "Sweden", away_team, home_team)) %>%
+  select(fixture, from, to, n)
+
+unique_pairs &lt;- passes %>%
+  expand(fixture, nesting(from, to)) %>%
+  mutate(row_id = as.character(map2(from, to, ~paste(sort(c(.x, .y)), collapse = ",")))) %>%
+  group_by(fixture, row_id) %>%
+  filter(row_number() == 1) %>%
+  ungroup() %>%
+  select(-row_id)
+
+passes_flows &lt;- unique_pairs %>%
+  left_join(passes, by = c("fixture", "from", "to")) %>%
+  left_join(passes, by = c("fixture" = "fixture", "from" = "to", "to" = "from")) %>%
+  replace(is.na(.), 0L) %>%
+  filter(n.x + n.y > 0) %>%
+  rename(left = from, right = to, left_to_right = n.x, right_to_left = n.y)
+</code></pre>
+<p><strong>Conclusion</strong></p>
+<p>So is it worth the effort learning d3? If you quickly want to produce visualisations for analyses or reports, then I would say no. It does require some effort to learn and it certainly helps if you have prior experience with javascript. But if you're in to web development or producing customised visualizations for your notebooks or dashboards, then yes. D3 has a highly active community with many examples you can learn from and use. Once you have your own library of d3 scripts it's easy to bind data from R to d3 with the r2d3 package. If you're looking to take your data viz to the next level and really be creative without too many constraints, d3 might just be something for you!</p>
+
+<script>
+
+  /*
+    The MIT License (MIT)
+
+    Copyright (c) 2014 Steve Hall
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+  */
+
+  var data_filtered;
+  var size = [750, 750]; // SVG SIZE WIDTH, HEIGHT
+  var marg = [50, 50, 50, 50]; // TOP, RIGHT, BOTTOM, LEFT
+  var dims = []; // USABLE DIMENSIONS
+  dims[0] = size[0] - marg[1] - marg[3]; // WIDTH
+  dims[1] = size[1] - marg[0] - marg[2]; // HEIGHT
+
+  var colors = d3.scale.ordinal()
+    .range(['#9C6744', '#C9BEB9', '#CFA07E', '#C4BAA1', '#C2B6BF', '#121212', '#8FB5AA', '#85889E', '#9C7989', '#91919C', '#242B27', '#212429', '#99677B', '#36352B', '#33332F', '#2B2B2E', '#2E1F13', '#2B242A', '#918A59', '#6E676C', '#6E4752', '#6B4A2F', '#998476', '#8A968D', '#968D8A', '#968D96', '#CC855C', '#967860', '#929488', '#949278', '#A0A3BD', '#BD93A1', '#65666B', '#6B5745', '#6B6664', '#695C52', '#56695E', '#69545C', '#565A69', '#696043', '#63635C', '#636150', '#333131', '#332820', '#302D30', '#302D1F', '#2D302F', '#CFB6A3', '#362F2A']);
+
+  var chord = d3.layout.chord()
+    .padding(0.02)
+    .sortGroups(d3.descending)
+    .sortSubgroups(d3.ascending);
+
+  var matrix = chordMatrix()
+    .layout(chord)
+    .filter(function (item, r, c) {
+      return (item.left === r.name && item.right === c.name) ||
+        (item.left === c.name && item.right === r.name);
+    })
+    .reduce(function (items, r, c) {
+      var value;
+      if (!items[0]) {
+        value = 0;
+      } else {
+        value = items.reduce(function (m, n) {
+          if (r === c) {
+            return m + (n.left_to_right + 0);
+          } else {
+            return m + (n.left === r.name ? n.right_to_left : n.left_to_right);
+          }
+        }, 0);
+      }
+      return { value: value, data: items };
+    });
+
+  var innerRadius = (dims[1] / 2) - 100;
+
+  var arc = d3.svg.arc()
+    .innerRadius(innerRadius)
+    .outerRadius(innerRadius + 20);
+
+  var path = d3.svg.chord()
+    .radius(innerRadius);
+
+  var svg = d3.select("#mychart").append("svg")
+    .attr("style", "display: block; margin: 0 auto;")
+    .attr("class", "chart")
+    .attr({ width: size[0] + "px", height: size[1] + "px" })
+    .attr("preserveAspectRatio", "xMinYMin")
+    .attr("viewBox", "0 0 " + size[0] + " " + size[1]);
+    
+
+  var container = svg.append("g")
+    .attr("class", "container")
+    .attr("transform", "translate(" + ((dims[0] / 2) + marg[3]) + "," + ((dims[1] / 2) + marg[0]) + ")");
+
+  var messages = svg.append("text")
+    .attr("class", "messages")
+    .attr("transform", "translate(10, 10)")
+    .text("Updating...");
+
+  var tooltip = d3.select("body")
+    .append("div")
+    .attr("class", "tooltip")
+    .style("position", "absolute")
+    .style("background-color", "white")
+    .style("border", "solid")
+    .style("border-width", "1px")
+    .style("border-radius", "5px")
+    .style("padding", "10px")
+    .style("display", "none")
+
+  d3.csv("/data/se_passes.csv", function (err, data) {
+
+    data.forEach(function (d) {
+      d.left_to_right = +d.left_to_right;
+      d.right_to_left = +d.right_to_left;
+    });
+
+    const distinct = function (value, index, self) {
+      return self.indexOf(value) == index;
+    };
+
+    var fixtures = data.map(d => d.fixture).filter(distinct);
+
+    var dd = d3.select("#fixtures-dd")
+      .selectAll("li")
+      .data(fixtures)
+      .enter()
+      .append("option")
+      .attr("value", d => d)
+      .text(d => d);
+
+    data_filtered = data;
+
+    filterData();
+
+  });
+
+
+  function filterData() {
+    var selected = getTags();
+    var thresh = document.getElementById("thresholdLabel").innerHTML;
+    var e = document.getElementById("fixtures-dd");
+    var fixture = e.options[e.selectedIndex].text;
+    var data_short = data_filtered
+      .filter(function (d) {
+        v1 = d.left;
+        v2 = d.right;
+        return !(selected.includes(v1) || selected.includes(v2))
+      })
+      .filter(function (d) {
+        return ((d.left_to_right + d.right_to_left) > thresh);
+      })
+      .filter(function (d) {
+        return d.fixture == fixture;
+      });
+
+    drawChords(data_short);
+  };
+
+  function getTags() {
+    var list = document.getElementById("players-box");
+    var items = list.getElementsByTagName("span");
+    var arr = [];
+    for (var i = 0; i < items.length; ++i) {
+      arr.push(items[i].id);
+    }
+    return (arr);
+  };
+
+
+  function addTag(s) {
+    var box = document.getElementById("players-box");
+    var sp = document.createElement("span")
+    sp.innerHTML = s;
+    sp.setAttribute("class", "tag")
+    sp.setAttribute("id", s);
+    sp.setAttribute("style", "cursor: pointer;");
+    sp.setAttribute("onClick", "unTag(this)")
+    box.appendChild(sp);
+    filterData();
+  };
+
+  function unTag(el) {
+    var list = document.getElementById("players-box");
+    list.removeChild(el);
+    filterData();
+  };
+
+  function displayThreshold(v) {
+    document.getElementById("thresholdLabel").innerHTML = v;
+    filterData();
+  };
+
+</script>
